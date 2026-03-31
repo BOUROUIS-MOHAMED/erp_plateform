@@ -1,0 +1,25 @@
+/* DashboardStock.css */ 
+/* src/pages/stock/DashboardStock.css */
+.dashboard-stock {
+  padding: 20px;
+}
+
+.dashboard-stock h1 {
+  color: #333;
+  margin-bottom: 20px;
+}
+
+.dashboard-stock table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.dashboard-stock th, .dashboard-stock td {
+  padding: 10px;
+  text-align: left;
+  border-bottom: 1px solid #ddd;
+}
+
+.dashboard-stock th {
+  background-color: #f2f2f2;
+}
