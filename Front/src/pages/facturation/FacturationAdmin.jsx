@@ -179,7 +179,14 @@ export default function FacturationAdmin() {
     setClients(pickList(clientsResponse, ['data']).map(mapCustomerToUi))
     setInvoices(invoiceItems)
     setOrders(pickList(ordersResponse, ['data']).map(order => mapOrderToUi(order, invoiceByOrderId)))
-    setReports(pickList(reportsResponse, ['data']).map(report => mapReportToUi(report, getReportIcon(report.type))))
+    setReports(
+      pickList(reportsResponse, ['data'])
+        .filter(report => {
+          const tags = report.tags || []
+          return tags.length === 0 || tags.includes('source:facturation')
+        })
+        .map(report => mapReportToUi(report, getReportIcon(report.type)))
+    )
     setProducts(pickList(productsResponse, ['products', 'data']).map(mapProductToUi))
     setArchiveLog([])
   }
@@ -622,7 +629,8 @@ export default function FacturationAdmin() {
       await reportService.create({
         title: rForm.title,
         description: rForm.description,
-        type: rForm.type
+        type: rForm.type,
+        tags: ['source:facturation']
       })
       await loadFacturationData(userRole, userSettings.email || email)
       closeModal('report')
@@ -670,8 +678,38 @@ export default function FacturationAdmin() {
     }
   }
 
-  const handleGenerateInvoiceRemote = async () => {
-    showNotification("La g?n?ration de facture depuis une commande n'est pas encore reli?e ? un endpoint backend d?di?", "error")
+  const handleGenerateInvoiceRemote = async (order) => {
+    if (!order?.customerId) {
+      showNotification("Impossible de générer : client introuvable sur cette commande", "error")
+      return
+    }
+    const backendItems = order?.backend?.items
+    if (!Array.isArray(backendItems) || backendItems.length === 0) {
+      showNotification("Impossible de générer : la commande ne contient aucun article", "error")
+      return
+    }
+    try {
+      const dueDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+      const items = backendItems.map(item => ({
+        product: item.product?._id || item.product,
+        description: item.description || item.product?.name || 'Article',
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        taxRate: item.taxRate || 20,
+        discount: item.discount || 0
+      }))
+      await invoiceService.create({
+        customer: order.customerId,
+        items,
+        dueDate,
+        orderId: order.id,
+        notes: `Facture générée depuis la commande ${order.id}`
+      })
+      await loadFacturationData(userRole, userSettings.email || email)
+      showNotification(`Facture créée pour la commande ${order.id}`, "success")
+    } catch (error) {
+      showNotification(extractApiErrorMessage(error, "Impossible de générer la facture"), "error")
+    }
   }
 
   const handleMarkAsPaidRemote = async (invoice) => {

@@ -111,6 +111,10 @@ function StockAdmin(){
   const [spf,setSpf]=useState(false),[sdp,setSdp]=useState(false)
   // Données
   const [cat,setCat]=useState([]),[prod,setProd]=useState([]),[mov,setMov]=useState([]),[supp,setSupp]=useState([]),[reports,setReports]=useState([])
+  // Alertes lues (localStorage)
+  const ALERTS_LS_KEY='erp_stock_alerts_read'
+  const [readAlerts,setReadAlerts]=useState(()=>{try{const s=localStorage.getItem('erp_stock_alerts_read');return s?JSON.parse(s):{}}catch{return{}}})
+  const toggleAlertRead=(type,productId)=>{setReadAlerts(prev=>{const cur=prev[type]||[];const next=cur.includes(productId)?cur.filter(i=>i!==productId):[...cur,productId];const upd={...prev,[type]:next};localStorage.setItem('erp_stock_alerts_read',JSON.stringify(upd));return upd})}
 
   // Formulaires
   const [cf,setCf]=useState({name:"",description:""})
@@ -165,7 +169,14 @@ function StockAdmin(){
     setProd(pickList(productResponse,['products','data']).map(mapProductToUi))
     setSupp(pickList(supplierResponse,['suppliers','data']).map(mapSupplierToUi))
     setMov(pickList(movementResponse,['movements','data']).map(mapMovementToUi))
-    setReports(pickList(reportResponse,['data']).map(report=>mapReportToUi(report,getReportIcon(report.type))))
+    setReports(
+      pickList(reportResponse,['data'])
+        .filter(report => {
+          const tags = report.tags || []
+          return tags.length === 0 || tags.includes('source:stock')
+        })
+        .map(report=>mapReportToUi(report,getReportIcon(report.type)))
+    )
   }
 
   // ===== AUTH =====
@@ -592,7 +603,7 @@ function StockAdmin(){
   const hdlAddReportRemote=async()=>{
     const e=vReport();if(Object.keys(e).length)return setFe(e)
     try{
-      await reportService.create({title:rf.title.trim(),description:rf.description.trim(),type:rf.type||"custom"})
+      await reportService.create({title:rf.title.trim(),description:rf.description.trim(),type:rf.type||"custom",tags:['source:stock']})
       await loadStockData(ur,ue)
       rReport();setMod(p=>({...p,report:false}))
     }catch(error){
@@ -874,7 +885,36 @@ function StockAdmin(){
         {tab===TABS.ALERTS&&<div className="alerts-tab">
           <h2>⚠️ Alertes stock</h2>
           <div className="alerts-container">
-            {[{title:"Stock faible",products:prod.filter(p=>p.stock>0&&p.stock<10),icon:"⚠️",action:"Réapprovisionner"},{title:"Rupture",products:prod.filter(p=>p.stock===0),icon:"❌",action:"Commander"}].map(s=><section key={s.title} className="alerts-section"><h3>{s.title}</h3><div className="alerts-list">{s.products.length?s.products.map(p=><article key={p.id} className={`alert-item ${s.title==="Stock faible"?"warning":"danger"}`}><div className="alert-icon">{s.icon}</div><div className="alert-content"><strong>{p.name}</strong><span>{s.title==="Stock faible"?`Stock: ${p.stock}`:"Stock épuisé"}</span><small>Fournisseur: {supp.find(s=>s.id===p.supplierId)?.name || '-'}</small></div><button className="btn-small" onClick={()=>{setMf({productId:p.id,product:p.name,type:MV.IN,quantity:"10",date:new Date().toISOString().split('T')[0],note:s.title==="Stock faible"?"Réapprovisionnement":"Commande"});setMod(prev=>({...prev,movement:true}))}}>{s.action}</button></article>):<p className="no-alerts">Aucun</p>}</div></section>)}
+            {[
+              {title:"Stock faible",key:"faible",products:prod.filter(p=>p.stock>0&&p.stock<5),icon:"⚠️",action:"Réapprovisionner",cls:"warning"},
+              {title:"Rupture",key:"rupture",products:prod.filter(p=>p.stock>=5&&p.stock<=10),icon:"❌",action:"Commander",cls:"danger"}
+            ].map(s=>(
+              <section key={s.title} className="alerts-section">
+                <h3>{s.title}</h3>
+                <div className="alerts-list">
+                  {s.products.length
+                    ? s.products.map(p=>{
+                        const isRead=(readAlerts[s.key]||[]).includes(p.id)
+                        return (
+                          <article key={p.id} className={`alert-item ${s.cls}${isRead?' alert-read':''}`} style={isRead?{opacity:0.5}:{}}>
+                            <div className="alert-icon">{s.icon}</div>
+                            <div className="alert-content">
+                              <strong>{p.name}</strong>
+                              <span>Stock: {p.stock}</span>
+                              <small>Fournisseur: {supp.find(sup=>sup.id===p.supplierId)?.name||'-'}</small>
+                            </div>
+                            <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
+                              <button className="btn-small" onClick={()=>{setMf({productId:p.id,product:p.name,type:MV.IN,quantity:"10",date:new Date().toISOString().split('T')[0],note:s.title==="Stock faible"?"Réapprovisionnement":"Commande"});setMod(prev=>({...prev,movement:true}))}}>{s.action}</button>
+                              <button className="btn-small" style={{background:isRead?'#718096':'#48bb78',color:'white',border:'none',borderRadius:'4px',padding:'4px 8px',cursor:'pointer',fontSize:'0.75rem'}} onClick={()=>toggleAlertRead(s.key,p.id)}>{isRead?'Non lu':'Lu'}</button>
+                            </div>
+                          </article>
+                        )
+                      })
+                    : <p className="no-alerts">Aucun</p>
+                  }
+                </div>
+              </section>
+            ))}
           </div>
         </div>}
 

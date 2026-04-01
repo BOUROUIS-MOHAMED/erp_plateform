@@ -296,7 +296,14 @@ function FinanceAdmin() {
     setTransactions(pickList(transactionsResponse, ['data']).map(mapTransactionToUi));
     setAccounts(pickList(accountsResponse, ['data']).map(mapAccountToUi));
     setBudgets(pickList(budgetsResponse, ['data']).map(mapBudgetToUi));
-    setReports(pickList(reportsResponse, ['data']).map((report) => mapReportToUi(report, "📄")));
+    setReports(
+      pickList(reportsResponse, ['data'])
+        .filter(report => {
+          const tags = report.tags || []
+          return tags.length === 0 || tags.includes('source:finance')
+        })
+        .map((report) => mapReportToUi(report, "📄"))
+    );
   };
 
   useEffect(() => {
@@ -534,7 +541,7 @@ function FinanceAdmin() {
       } else if (modal.type === "budget") {
         await budgetService.create(form);
       } else if (modal.type === "report") {
-        await reportService.create(form);
+        await reportService.create({ ...form, tags: ['source:finance'] });
       }
 
       await loadFinanceData(userRole, userEmail);

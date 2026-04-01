@@ -160,6 +160,12 @@ const invoiceSchema = new mongoose.Schema({
     required: true,
     index: true
   },
+  // Référence commande
+  orderId: {
+    type: String,
+    default: null,
+    index: true
+  },
   // Documents
   originalInvoice: {
     type: mongoose.Schema.Types.ObjectId,
@@ -206,8 +212,8 @@ invoiceSchema.index({ createdAt: -1 });
 invoiceSchema.index({ invoiceNumber: 'text' });
 
 // MIDDLEWARES
-// Génération du numéro de facture
-invoiceSchema.pre('save', async function() {
+// Génération du numéro de facture (pre-validate pour que le champ soit prêt avant la validation)
+invoiceSchema.pre('validate', async function() {
   if (this.isNew && !this.invoiceNumber) {
     const date = new Date();
     const year = date.getFullYear();

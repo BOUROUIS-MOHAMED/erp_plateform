@@ -13,7 +13,7 @@ const { createNotification } = require('./notificationController');
 // @route   POST /api/invoices
 const createInvoice = async (req, res) => {
   try {
-    const { customer, items, dueDate, notes } = req.body;
+    const { customer, items, dueDate, notes, orderId } = req.body;
 
     // Vérifier que le client existe
     const customerExists = await Customer.findById(customer);
@@ -71,13 +71,12 @@ const createInvoice = async (req, res) => {
 
       // Créer mouvement de stock
       await StockMovement.create({
-        product: product._id,
+        productId: product._id,
+        product: product.name,
         type: 'sortie',
         quantity: item.quantity,
-        reason: 'vente',
-        reference: 'facture',
-        stockBefore,
-        stockAfter: product.currentStock,
+        reason: 'sale',
+        note: `Facture - commande ${orderId || ''}`,
         createdBy: req.user.id
       });
 
@@ -101,6 +100,7 @@ const createInvoice = async (req, res) => {
       items: invoiceItems,
       dueDate,
       notes,
+      orderId: orderId || null,
       subtotalHT,
       totalTax,
       totalTTC,
