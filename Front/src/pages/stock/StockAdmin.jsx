@@ -172,6 +172,7 @@ function StockAdmin(){
     setReports(
       pickList(reportResponse,['data'])
         .filter(report => {
+          if (fallbackRole === 'admin_principal' || ur === 'admin_principal') return true
           const tags = report.tags || []
           return tags.length === 0 || tags.includes('source:stock')
         })

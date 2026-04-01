@@ -42,8 +42,12 @@ const accountSchema = new mongoose.Schema({
   balance: {
     type: Number,
     default: 0,
-    min: [0, 'Le solde ne peut pas être négatif'],
     set: v => Math.round(v * 100) / 100 // Arrondi à 2 décimales
+  },
+  inMoneyFlow: {
+    type: Boolean,
+    default: false,
+    index: true
   },
   currency: {
     type: String,
@@ -133,10 +137,10 @@ accountSchema.index({ isActive: 1, type: 1 });
 accountSchema.index({ parentAccount: 1 });
 accountSchema.index({ 'contactInfo.email': 1 }, { sparse: true });
 
-// ✅ Middleware pre-save
-accountSchema.pre('save', function() {
+// ✅ Middleware pre-validate
+accountSchema.pre('validate', function() {
   // Définir le niveau automatiquement basé sur la longueur du code
-  if (this.code && this.isModified('code')) {
+  if (this.code) {
     this.level = this.code.length;
   }
 });

@@ -41,15 +41,15 @@ body {
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ===== NOTIFICATION ===== */
-.notification {
+.finance-container .notification {
   position: fixed; top: 20px; right: 20px;
   padding: 16px 24px; border-radius: var(--radius);
-  color: white; font-weight: 500; z-index: 9999;
+  color: #fff; font-weight: 500; z-index: 9999;
   animation: slideIn 0.3s ease; box-shadow: var(--shadow-hover);
 }
-.notification-success { background: var(--success); }
-.notification-error { background: var(--danger); }
-.notification-info { background: var(--primary); }
+.finance-container .notification-success { background: #48bb78; color: #fff; }
+.finance-container .notification-error { background: #f56565; color: #fff; }
+.finance-container .notification-info { background: #4299e1; color: #fff; }
 @keyframes slideIn {
   from { transform: translateX(100%); opacity: 0; }
   to { transform: translateX(0); opacity: 1; }

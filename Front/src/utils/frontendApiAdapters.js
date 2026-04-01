@@ -293,8 +293,12 @@ export const mapAccountToUi = (account = {}) => {
 
   return {
     id: account.id || account._id,
+    backendId: account.id || account._id,
     name: account.name || '',
-    balance: Number(account.balance || 0),
+    balance: Number(account.balance ?? account.solde ?? 0),
+    capital: Number(account.capital ?? account.balance ?? 0),
+    solde: Number(account.solde ?? account.balance ?? 0),
+    inMoneyFlow: Boolean(account.inMoneyFlow ?? account.inBudget),
     type: label,
     number: account.number || account.code || '',
     status: account.status || (account.isActive === false ? 'inactif' : 'actif'),
@@ -381,11 +385,33 @@ export const mapBudgetToUi = (budget = {}) => ({
   id: budget.id || budget._id,
   category: budget.category || '',
   budget: Number(budget.budget || 0),
-  actual: Number(budget.actual || 0),
-  month: budget.month || '',
-  status: budget.status || 'respecté',
+  usedAmount: Number(budget.usedAmount || 0),
+  startDate: toIsoDate(budget.startDate),
+  endDate: toIsoDate(budget.endDate),
+  status: budget.status || 'respected',
   notes: budget.notes || '',
-  variance: Number(budget.variance || 0),
-  variancePercentage: Number(budget.variancePercentage || 0),
   backend: budget,
+});
+
+export const mapTargetToUi = (target = {}) => ({
+  id: target.id || target._id,
+  category: target.category || '',
+  amount: Number(target.amount || 0),
+  realisedAmount: Number(target.realisedAmount || 0),
+  progression: Number(target.progression || 0),
+  startDate: toIsoDate(target.startDate),
+  endDate: toIsoDate(target.endDate),
+  status: target.status || 'in_progress',
+  notes: target.notes || '',
+  backend: target,
+});
+
+export const mapMoneyFlowToUi = (entry = {}) => ({
+  id: entry.id || entry._id,
+  category: entry.category || '',
+  amount: Number(entry.amount || 0),
+  date: toIsoDate(entry.date || entry.createdAt),
+  isExpense: Boolean(entry.isExpense),
+  note: entry.note || '',
+  backend: entry,
 });

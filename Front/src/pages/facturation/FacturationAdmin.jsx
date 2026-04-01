@@ -120,7 +120,7 @@ export default function FacturationAdmin() {
   const [products,setProducts] = useState([])
   const [invoices,setInvoices] = useState([])
   const [reports,setReports] = useState([])
-  const [archiveLog,setArchiveLog] = useState([])
+  const [archiveLog,setArchiveLog] = useState(() => { try { return JSON.parse(localStorage.getItem('erp_facturation_archives') || '[]') } catch { return [] } })
   const [showArchive,setShowArchive] = useState(false)
   const [archiveModal,setArchiveModal] = useState({show:false,invoice:null})
   const [archiveFilters,setArchiveFilters] = useState({search:"",year:"all"})
@@ -179,16 +179,18 @@ export default function FacturationAdmin() {
     setClients(pickList(clientsResponse, ['data']).map(mapCustomerToUi))
     setInvoices(invoiceItems)
     setOrders(pickList(ordersResponse, ['data']).map(order => mapOrderToUi(order, invoiceByOrderId)))
+    const role = fallbackRole || getUserRole()
     setReports(
       pickList(reportsResponse, ['data'])
         .filter(report => {
+          if (role === 'admin_principal') return true
           const tags = report.tags || []
           return tags.length === 0 || tags.includes('source:facturation')
         })
         .map(report => mapReportToUi(report, getReportIcon(report.type)))
     )
     setProducts(pickList(productsResponse, ['products', 'data']).map(mapProductToUi))
-    setArchiveLog([])
+    try { setArchiveLog(JSON.parse(localStorage.getItem('erp_facturation_archives') || '[]')) } catch { setArchiveLog([]) }
   }
 
   // ===== EFFETS =====
@@ -231,7 +233,7 @@ export default function FacturationAdmin() {
     overdueAmount:invoices.filter(i=>i.status==="en retard").reduce((a,i)=>a+i.amount,0),
     totalClients:clients.length,activeClients:clients.filter(c=>c.status==="actif").length,
     ordersToInvoice:orders.filter(o=>!o.invoiceId).length,paidInvoices:invoices.filter(i=>i.status==="payée").length,
-    totalReports:reports.length,archivedInvoices:invoices.filter(i=>i.archived).length,totalArchiveEntries:archiveLog.length
+    totalReports:reports.length,archivedInvoices:archiveLog.length,totalArchiveEntries:archiveLog.length
   }),[orders,invoices,clients,reports,archiveLog])
 
   // ===== GESTION DES PARAMÈTRES =====
@@ -726,18 +728,50 @@ export default function FacturationAdmin() {
     }
   }
 
-  const handleRestoreInvoiceRemote = async () => {
-    showNotification("La restauration d'archives n'est pas encore disponible c?t? backend", "error")
+  const ARCHIVE_LS_KEY = 'erp_facturation_archives'
+  const getArchivedInvoices = () => { try { return JSON.parse(localStorage.getItem(ARCHIVE_LS_KEY) || '[]') } catch { return [] } }
+  const saveArchivedInvoices = (archives) => localStorage.setItem(ARCHIVE_LS_KEY, JSON.stringify(archives))
+
+  const handleArchiveInvoiceRemote = async (invoice) => {
+    if (!invoice) return
+    const archives = getArchivedInvoices()
+    const entry = {
+      id: Date.now(),
+      invoiceId: invoice.id,
+      backendId: invoice.backendId,
+      client: invoice.client,
+      amount: invoice.amount,
+      date: invoice.date,
+      archivedDate: new Date().toISOString(),
+      archivedBy: userSettings.firstName || 'admin_facture',
+      reason: 'Archivage manuel',
+      reference: `ARCH-${new Date().getFullYear()}-${String(Math.floor(Math.random()*1000)).padStart(3,'0')}`
+    }
+    archives.unshift(entry)
+    saveArchivedInvoices(archives)
+    setArchiveLog(archives)
+    await loadFacturationData(userRole, userSettings.email || email)
+    showNotification(`Facture ${invoice.id} archivée`, "success")
   }
 
-  const handleArchiveInvoiceRemote = async () => {
-    showNotification("L'archivage comptable n'a pas encore d'endpoint backend disponible", "error")
+  const handleRestoreInvoiceRemote = async (entry) => {
+    const archivedDate = new Date(entry.archivedDate)
+    const now = new Date()
+    const daysSince = Math.floor((now - archivedDate) / (1000 * 60 * 60 * 24))
+    if (daysSince > 7) {
+      showNotification(`Restauration impossible : archivée depuis ${daysSince} jours (max 7 jours)`, "error")
+      return
+    }
+    const archives = getArchivedInvoices().filter(a => a.id !== entry.id)
+    saveArchivedInvoices(archives)
+    setArchiveLog(archives)
+    showNotification(`Facture ${entry.invoiceId} restaurée`, "success")
   }
 
   const handleDownloadInvoiceRemote = async (invoice) => {
     try {
       await invoiceService.downloadPdf(invoice.backendId || invoice.id)
-      showNotification("Facture t?l?charg?e", "success")
+      showNotification("Facture telechargé", "success")
     } catch (error) {
       showNotification(extractApiErrorMessage(error, "Impossible de t?l?charger la facture"), "error")
     }
@@ -746,9 +780,10 @@ export default function FacturationAdmin() {
   // ===== FILTRES =====
   const filteredOrders = useMemo(()=>orders.filter(o=>(!filters.date.start||o.date>=filters.date.start)&&(!filters.date.end||o.date<=filters.date.end)&&(!filters.search||o.id.toLowerCase().includes(filters.search.toLowerCase())||o.client.toLowerCase().includes(filters.search.toLowerCase()))),[orders,filters])
   const filteredClients = useMemo(()=>clients.filter(c=>!filters.search||c.name.toLowerCase().includes(filters.search.toLowerCase())||c.email.toLowerCase().includes(filters.search.toLowerCase())||c.siret.includes(filters.search)),[clients,filters.search])
-  const filteredInvoices = useMemo(()=>invoices.filter(i=>(!filters.search||i.id.toLowerCase().includes(filters.search.toLowerCase())||i.client.toLowerCase().includes(filters.search.toLowerCase())||i.orderId.toLowerCase().includes(filters.search.toLowerCase()))&&(showArchive||!i.archived)).sort((a,b)=>new Date(b.date)-new Date(a.date)),[invoices,filters.search,showArchive])
+  const archivedInvoiceIds = useMemo(()=>new Set(archiveLog.map(a=>a.invoiceId)),[archiveLog])
+  const filteredInvoices = useMemo(()=>invoices.filter(i=>!archivedInvoiceIds.has(i.id)&&(!filters.search||i.id.toLowerCase().includes(filters.search.toLowerCase())||i.client.toLowerCase().includes(filters.search.toLowerCase())||i.orderId.toLowerCase().includes(filters.search.toLowerCase()))).sort((a,b)=>new Date(b.date)-new Date(a.date)),[invoices,filters.search,archivedInvoiceIds])
   const filteredReports = useMemo(()=>reports.filter(r=>!filters.search||r.title.toLowerCase().includes(filters.search.toLowerCase())).sort((a,b)=>new Date(b.date)-new Date(a.date)),[reports,filters.search])
-  const filteredArchiveLog = useMemo(()=>archiveLog.filter(e=>(!archiveFilters.search||e.invoiceId.toLowerCase().includes(archiveFilters.search.toLowerCase())||e.client?.toLowerCase().includes(archiveFilters.search.toLowerCase())||e.reference.toLowerCase().includes(archiveFilters.search.toLowerCase()))&&(archiveFilters.year==="all"||e.date.startsWith(archiveFilters.year))).sort((a,b)=>new Date(b.date)-new Date(a.date)),[archiveLog,archiveFilters])
+  const filteredArchiveLog = useMemo(()=>archiveLog.filter(e=>(!archiveFilters.search||(e.invoiceId||'').toLowerCase().includes(archiveFilters.search.toLowerCase())||(e.client||'').toLowerCase().includes(archiveFilters.search.toLowerCase())||(e.reference||'').toLowerCase().includes(archiveFilters.search.toLowerCase()))&&(archiveFilters.year==="all"||(e.archivedDate||'').startsWith(archiveFilters.year))).sort((a,b)=>new Date(b.archivedDate||0)-new Date(a.archivedDate||0)),[archiveLog,archiveFilters])
 
   // ===== COMPOSANT INTERNE =====
   const NavItem = ({k,i,l,c}) => (
@@ -924,9 +959,13 @@ export default function FacturationAdmin() {
             <h3>Journal des archives</h3>
             <table className="archive-table">
               <thead>
-                <tr><th>Référence</th><th>Facture</th><th>Date</th><th>Client</th><th>Montant</th><th>Motif</th><th>Archivé par</th><th>Conservation</th><th>Actions</th></tr>
+                <tr><th>Référence</th><th>Facture</th><th>Date archivage</th><th>Client</th><th>Montant</th><th>Motif</th><th>Archivé par</th><th>Actions</th></tr>
               </thead>
-              <tbody>{filteredArchiveLog.map(e=><tr key={e.id}><td><span className="archive-ref">{e.reference}</span></td><td>{e.invoiceId}</td><td>{utils.formatDate(e.date)}</td><td>{e.client||"-"}</td><td>{utils.formatCurrency(e.amount||0)}</td><td>{e.reason}</td><td>{e.archivedBy}</td><td>{utils.formatDate(e.retentionDate)}</td><td><button className="btn-icon" onClick={()=>handleRestoreInvoiceRemote(e)} title="Restaurer">↩️</button></td></tr>)}</tbody>
+              <tbody>{filteredArchiveLog.map(e=>{
+                const daysSince=Math.floor((new Date()-new Date(e.archivedDate))/(1000*60*60*24))
+                const canRestore=daysSince<=7
+                return <tr key={e.id}><td><span className="archive-ref">{e.reference}</span></td><td>{e.invoiceId}</td><td>{utils.formatDate(e.archivedDate)}</td><td>{e.client||"-"}</td><td>{utils.formatCurrency(e.amount||0)}</td><td>{e.reason}</td><td>{e.archivedBy}</td><td>{canRestore?<button className="btn-icon" onClick={()=>handleRestoreInvoiceRemote(e)} title="Restaurer (encore possible)">↩️</button>:<span style={{color:'var(--gray-500)',fontSize:'0.8rem'}}>Verrouillé ({daysSince}j)</span>}</td></tr>
+              })}</tbody>
             </table>
           </div>
         </div>}
@@ -1057,7 +1096,7 @@ export default function FacturationAdmin() {
                 <p><strong>Montant:</strong> {utils.formatCurrency(archiveModal.invoice.amount)}</p>
                 <p><strong>Date:</strong> {utils.formatDate(archiveModal.invoice.date)}</p>
               </div>
-              <p className="archive-warning">⚠️ L'archivage est irréversible.</p>
+              <p className="archive-warning">⚠️ Vous pourrez restaurer cette facture pendant 7 jours après l'archivage.</p>
             </div>
             <div className="modal-footer">
               <button className="btn-secondary" onClick={()=>setArchiveModal({show:false,invoice:null})}>
@@ -1085,78 +1124,71 @@ export default function FacturationAdmin() {
             <h3>{edit.type==='order'?'✏️ Modifier':'➕ Nouvelle'} commande</h3>
             <button className="modal-close" onClick={()=>closeModal('order')}>×</button>
           </div>
-          <div className="modal-body" style={{maxHeight:'60vh', overflowY:'auto', padding:'20px'}}>
+          <div className="modal-body" style={{maxHeight:'65vh', overflowY:'auto'}}>
             <div className="form-group">
               <label>Client *</label>
               {edit.type==='order' ? (
                 <input type="text" value={clients.find(c=>String(c.id)===String(oForm.client))?.name || (typeof oForm.client === 'string' ? oForm.client : 'Client...')} disabled />
               ) : (
                 <select value={oForm.client} onChange={e=>setOForm({...oForm,client:e.target.value})}>
-                  <option value="">Sélectionner</option>
+                  <option value="">Sélectionner un client</option>
                   {clients.filter(c=>c.status==="actif").map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               )}
             </div>
+
             <div className="form-group">
               <label>Articles *</label>
-              {oForm.items.length > 0 && (
-                <div className="form-row" style={{marginBottom: '5px', padding: '0 40px 0 0', fontWeight: 'bold', fontSize: '0.85rem', color: 'var(--gray-500)'}}>
-                  <div style={{flex: 2, paddingRight: '10px'}}>Produit</div>
-                  <div style={{flex: 1, paddingRight: '10px'}}>Qté</div>
-                  <div style={{flex: 1}}>Prix U. (€)</div>
+              <div style={{border:'1px solid var(--gray-200)', borderRadius:'var(--radius)', overflow:'hidden'}}>
+                <table style={{width:'100%', borderCollapse:'collapse', fontSize:'0.9rem'}}>
+                  <thead>
+                    <tr style={{background:'var(--gray-50)'}}>
+                      <th style={{padding:'10px 12px', textAlign:'left', fontWeight:600, fontSize:'0.8rem', color:'var(--gray-500)'}}>Produit</th>
+                      <th style={{padding:'10px 12px', textAlign:'center', fontWeight:600, fontSize:'0.8rem', color:'var(--gray-500)', width:'80px'}}>Qté</th>
+                      <th style={{padding:'10px 12px', textAlign:'center', fontWeight:600, fontSize:'0.8rem', color:'var(--gray-500)', width:'110px'}}>Prix U.</th>
+                      <th style={{padding:'10px 12px', textAlign:'right', fontWeight:600, fontSize:'0.8rem', color:'var(--gray-500)', width:'100px'}}>Sous-total</th>
+                      <th style={{width:'40px'}}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {oForm.items.map((item, idx) => (
+                      <tr key={idx} style={{borderTop:'1px solid var(--gray-200)'}}>
+                        <td style={{padding:'8px 12px'}}>
+                          <select value={item.product} onChange={e=>{const prod=products.find(p=>String(p.id)===e.target.value);const ni=[...oForm.items];ni[idx]={...ni[idx],product:e.target.value,unitPrice:prod?prod.price:item.unitPrice};setOForm({...oForm,items:ni})}} style={{width:'100%', padding:'8px', border:'1px solid var(--gray-200)', borderRadius:'var(--radius)', fontSize:'0.85rem'}}>
+                            <option value="">Choisir...</option>
+                            {products.filter(p=>p.status!=='inactif').map(p=><option key={p.id} value={p.id}>{p.name} ({p.stock})</option>)}
+                          </select>
+                        </td>
+                        <td style={{padding:'8px 6px', textAlign:'center'}}>
+                          <input type="number" min="1" value={item.quantity} onChange={e=>{const ni=[...oForm.items];ni[idx].quantity=e.target.value;setOForm({...oForm,items:ni})}} style={{width:'100%', padding:'8px', border:'1px solid var(--gray-200)', borderRadius:'var(--radius)', textAlign:'center', fontSize:'0.85rem'}}/>
+                        </td>
+                        <td style={{padding:'8px 6px', textAlign:'center'}}>
+                          <input type="number" step="0.01" value={item.unitPrice} onChange={e=>{const ni=[...oForm.items];ni[idx].unitPrice=e.target.value;setOForm({...oForm,items:ni})}} style={{width:'100%', padding:'8px', border:'1px solid var(--gray-200)', borderRadius:'var(--radius)', textAlign:'right', fontSize:'0.85rem'}}/>
+                        </td>
+                        <td style={{padding:'8px 12px', textAlign:'right', fontWeight:600, fontSize:'0.85rem'}}>
+                          {utils.formatCurrency((parseFloat(item.quantity)||0)*(parseFloat(item.unitPrice)||0))}
+                        </td>
+                        <td style={{padding:'8px 6px', textAlign:'center'}}>
+                          {oForm.items.length>1&&<button onClick={e=>{e.preventDefault();setOForm({...oForm,items:oForm.items.filter((_,i)=>i!==idx)})}} style={{background:'none', border:'none', cursor:'pointer', color:'var(--danger)', fontSize:'1rem', padding:'4px'}}>🗑️</button>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div style={{padding:'10px 12px', borderTop:'1px solid var(--gray-200)', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                  <button className="btn-outline" onClick={e=>{e.preventDefault();setOForm({...oForm,items:[...oForm.items,{product:"",quantity:1,unitPrice:0}]})}} style={{fontSize:'0.8rem', padding:'6px 12px'}}>+ Ajouter un produit</button>
+                  <div style={{fontWeight:700, fontSize:'1rem'}}>Total TTC : <span style={{color:'var(--success)'}}>{utils.formatCurrency(oForm.items.reduce((s,i)=>s+((parseFloat(i.quantity)||0)*(parseFloat(i.unitPrice)||0)),0)*1.2)}</span></div>
                 </div>
-              )}
-              {oForm.items.map((item, idx) => (
-                <div key={idx} style={{display:'flex', gap:'15px', marginBottom:'10px', alignItems:'center', flexWrap:'nowrap'}}>
-                  <div style={{flex:2}}>
-                    <select 
-                      className="form-control"
-                      style={{width: '100%', padding: '10px', borderRadius: 'var(--radius)', border: '1px solid var(--gray-200)'}}
-                      value={item.product} 
-                      onChange={e => {
-                        const prod = products.find(p=>String(p.id)===e.target.value);
-                        const newItems = [...oForm.items];
-                        newItems[idx] = { ...newItems[idx], product: e.target.value, unitPrice: prod ? prod.price : item.unitPrice };
-                        setOForm({...oForm, items: newItems});
-                      }}
-                    >
-                      <option value="">Produit...</option>
-                      {products.filter(p=>p.status!=='inactif').map(p=><option key={p.id} value={p.id}>{p.name} ({p.stock} en stock) - {utils.formatCurrency(p.price)}</option>)}
-                    </select>
-                  </div>
-                  <div style={{flex:1}}>
-                    <input type="number" min="1" value={item.quantity} onChange={e=>{
-                      const newItems=[...oForm.items]; 
-                      newItems[idx].quantity=e.target.value; 
-                      setOForm({...oForm,items:newItems})
-                    }} placeholder="Qté" style={{width: '100%', padding: '10px', borderRadius: 'var(--radius)', border: '1px solid var(--gray-200)'}}/>
-                  </div>
-                  <div style={{flex:1}}>
-                    <input type="number" step="0.01" value={item.unitPrice} onChange={e=>{
-                      const newItems=[...oForm.items]; 
-                      newItems[idx].unitPrice=e.target.value; 
-                      setOForm({...oForm,items:newItems})
-                    }} placeholder="Prix U." style={{width: '100%', padding: '10px', borderRadius: 'var(--radius)', border: '1px solid var(--gray-200)'}}/>
-                  </div>
-                  <button className="btn-icon" onClick={(e)=>{
-                    e.preventDefault();
-                    setOForm({...oForm, items: oForm.items.filter((_, i) => i !== idx)})
-                  }} style={{borderColor:'var(--danger)', color:'var(--danger)', padding:'10px', background: 'transparent', borderRadius: 'var(--radius)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>🗑️</button>
-                </div>
-              ))}
-              <button className="btn-outline" onClick={(e)=>{e.preventDefault(); setOForm({...oForm, items: [...oForm.items, {product:"", quantity:1, unitPrice:0}]})}} style={{marginTop:'10px', fontSize:'0.85rem'}}>+ Ajouter un produit</button>
-              
-              <div style={{marginTop:'15px', textAlign:'right', fontWeight:'bold', fontSize:'1.1rem'}}>
-                Total TTC Estimé : <span style={{color:'var(--success)'}}>{utils.formatCurrency(oForm.items.reduce((sum, item) => sum + ((parseFloat(item.quantity)||0) * (parseFloat(item.unitPrice)||0)), 0) * 1.2)}</span>
               </div>
             </div>
+
             <div className="form-row">
               <div className="form-group">
                 <label>Date prévue</label>
-                <input type="date" value={oForm.expectedDate} onChange={e=>setOForm({...oForm, expectedDate:e.target.value})} />
+                <input type="date" value={oForm.expectedDate} onChange={e=>setOForm({...oForm,expectedDate:e.target.value})}/>
               </div>
               <div className="form-group">
-                <label>Statut cmd</label>
+                <label>Statut</label>
                 <select value={oForm.status} onChange={e=>setOForm({...oForm,status:e.target.value})}>
                   {C.ORDER_STATUSES.map(s=><option key={s} value={s}>{s}</option>)}
                 </select>
@@ -1164,7 +1196,7 @@ export default function FacturationAdmin() {
             </div>
             <div className="form-group">
               <label>Notes</label>
-              <textarea rows="2" value={oForm.notes} onChange={e=>setOForm({...oForm, notes:e.target.value})} placeholder="Instructions spéciales pour la commande..."></textarea>
+              <textarea rows="2" value={oForm.notes} onChange={e=>setOForm({...oForm,notes:e.target.value})} placeholder="Instructions spéciales pour la commande..."></textarea>
             </div>
           </div>
           <div className="modal-footer">

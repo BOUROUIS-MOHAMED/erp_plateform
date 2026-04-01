@@ -52,8 +52,8 @@ const paymentSchema = new mongoose.Schema({
   timestamps: true
 });
 
-paymentSchema.pre('save', async function() {
-  if (this.isNew) {
+paymentSchema.pre('validate', async function() {
+  if (this.isNew && !this.paymentNumber) {
     const date = new Date();
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');

@@ -6,6 +6,7 @@ const budgetSchema = new mongoose.Schema({
     type: String,
     required: [true, 'La catégorie est requise'],
     trim: true,
+    set: v => String(v).toLowerCase().trim(),
     index: true
   },
   budget: {
@@ -14,35 +15,29 @@ const budgetSchema = new mongoose.Schema({
     min: [0, 'Le budget ne peut pas être négatif'],
     set: v => Math.round(v * 100) / 100
   },
-  actual: {
+  usedAmount: {
     type: Number,
     default: 0,
-    min: [0, 'Le réalisé ne peut pas être négatif'],
+    min: [0, 'Le montant utilisé ne peut pas être négatif'],
     set: v => Math.round(v * 100) / 100
   },
-  month: {
-    type: String,
-    required: [true, 'Le mois est requis'],
-    match: [/^\d{4}-\d{2}$/, 'Format de mois invalide (YYYY-MM)'],
-    index: true
+  startDate: {
+    type: Date,
+    required: [true, 'La date de début est requise']
+  },
+  endDate: {
+    type: Date,
+    required: [true, 'La date de fin est requise']
   },
   status: {
     type: String,
-    enum: ['respecté', 'dépassé', 'en_attente'],
-    default: 'en_attente'
+    enum: ['desactivated', 'respected', 'passed'],
+    default: 'respected'
   },
   notes: {
     type: String,
     trim: true,
     maxlength: [500, 'Les notes ne peuvent pas dépasser 500 caractères']
-  },
-  variance: {
-    type: Number,
-    default: 0
-  },
-  variancePercentage: {
-    type: Number,
-    default: 0
   },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
@@ -54,65 +49,13 @@ const budgetSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   }
-}, {
-  timestamps: true,
-  toJSON: { virtuals: true },
-  toObject: { virtuals: true }
-});
+}, { timestamps: true });
 
-// Index composé pour éviter les doublons
-budgetSchema.index({ category: 1, month: 1 }, { unique: true });
-
-// Middleware pour calculer la variance avant sauvegarde
-budgetSchema.pre('save', function() {
-  if (this.budget > 0) {
-    this.variance = this.actual - this.budget;
-    this.variancePercentage = (this.variance / this.budget) * 100;
-    
-    // Mettre à jour le statut automatiquement
-    if (this.variance <= 0) {
-      this.status = 'respecté';
-    } else if (this.variance > 0) {
-      this.status = 'dépassé';
-    }
+// Auto-calculate status before validation (so enum check sees valid value)
+budgetSchema.pre('validate', function () {
+  if (this.status !== 'desactivated') {
+    this.status = this.usedAmount > this.budget ? 'passed' : 'respected';
   }
 });
-
-// Méthode pour mettre à jour le réalisé
-budgetSchema.methods.updateActual = async function(amount) {
-  this.actual += amount;
-  return this.save();
-};
-
-// Méthode statique pour les budgets du mois
-budgetSchema.statics.getByMonth = function(month) {
-  return this.find({ month }).sort('category');
-};
-
-// Méthode statique pour les statistiques
-budgetSchema.statics.getStats = async function(month) {
-  const match = month ? { month } : {};
-  
-  const stats = await this.aggregate([
-    { $match: match },
-    {
-      $group: {
-        _id: null,
-        totalBudget: { $sum: '$budget' },
-        totalActual: { $sum: '$actual' },
-        totalVariance: { $sum: '$variance' },
-        count: { $sum: 1 },
-        respected: {
-          $sum: { $cond: [{ $eq: ['$status', 'respecté'] }, 1, 0] }
-        },
-        exceeded: {
-          $sum: { $cond: [{ $eq: ['$status', 'dépassé'] }, 1, 0] }
-        }
-      }
-    }
-  ]);
-  
-  return stats[0] || { totalBudget: 0, totalActual: 0, totalVariance: 0, count: 0, respected: 0, exceeded: 0 };
-};
 
 module.exports = mongoose.model('Budget', budgetSchema);

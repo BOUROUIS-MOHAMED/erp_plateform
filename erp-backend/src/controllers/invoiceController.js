@@ -538,7 +538,7 @@ const downloadInvoicePDF = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Facture non trouvée' });
     }
 
-    const pdfBuffer = await PDFGenerator.generateInvoice(invoice);
+    const pdfBuffer = await PDFGenerator.generateInvoice(invoice, invoice.customer, invoice.items);
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader(
@@ -669,7 +669,7 @@ const sendInvoiceEmail = async (req, res) => {
     }
 
     // Générer PDF
-    const pdfBuffer = await PDFGenerator.generateInvoice(invoice);
+    const pdfBuffer = await PDFGenerator.generateInvoice(invoice, invoice.customer, invoice.items);
 
     // Ici, vous intégreriez l'envoi d'email avec nodemailer
     console.log(`📧 Email envoyé à ${invoice.customer.email}`);

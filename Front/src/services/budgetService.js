@@ -1,12 +1,7 @@
 // src/services/budgetService.js
 import api from './api';
+
 export const budgetService = {
-  // ===== CRUD STANDARD =====
-  /**
-   * Récupère tous les budgets
-   * @param {Object} params - Paramètres optionnels (page, limit, month, category, status)
-   * @returns {Promise<Object>} Liste des budgets avec pagination
-   */
   getAll: async (params = {}) => {
     try {
       const response = await api.get('/budgets', { params });
@@ -16,17 +11,7 @@ export const budgetService = {
       throw error;
     }
   },
-  /**
-   * ALIAS pour compatibilité
-   */
-  getBudgets: async (params = {}) => {
-    return budgetService.getAll(params);
-  },
-  /**
-   * Récupère un budget par ID
-   * @param {string} id - ID du budget
-   * @returns {Promise<Object>} Détails du budget
-   */
+
   getById: async (id) => {
     try {
       if (!id) throw new Error('ID du budget requis');
@@ -37,30 +22,20 @@ export const budgetService = {
       throw error;
     }
   },
-  /**
-   * Crée un nouveau budget
-   * @param {Object} budgetData - Données du budget
-   * @returns {Promise<Object>} Budget créé
-   */
+
   create: async (budgetData) => {
     try {
-      // Validation des données requises
-      if (!budgetData.category?.trim()) {
-        throw new Error('La catégorie est requise');
-      }
-      if (!budgetData.budget || parseFloat(budgetData.budget) <= 0) {
-        throw new Error('Le montant du budget est requis et doit être positif');
-      }
-      if (!budgetData.month) {
-        throw new Error('Le mois est requis');
-      }
+      if (!budgetData.category?.trim()) throw new Error('La catégorie est requise');
+      if (!budgetData.budget || parseFloat(budgetData.budget) < 0) throw new Error('Le montant du budget est requis');
+      if (!budgetData.startDate) throw new Error('La date de début est requise');
+      if (!budgetData.endDate) throw new Error('La date de fin est requise');
       const response = await api.post('/budgets', {
         category: budgetData.category.trim(),
         budget: parseFloat(budgetData.budget),
-        actual: 0,
-        month: budgetData.month,
-        notes: budgetData.notes?.trim() || '',
-        status: 'respecté'
+        usedAmount: parseFloat(budgetData.usedAmount) || 0,
+        startDate: budgetData.startDate,
+        endDate: budgetData.endDate,
+        notes: budgetData.notes?.trim() || ''
       });
       return response.data;
     } catch (error) {
@@ -68,20 +43,18 @@ export const budgetService = {
       throw error;
     }
   },
-  /**
-   * Met à jour un budget
-   * @param {string} id - ID du budget
-   * @param {Object} budgetData - Nouvelles données
-   * @returns {Promise<Object>} Budget mis à jour
-   */
+
   update: async (id, budgetData) => {
     try {
       if (!id) throw new Error('ID du budget requis');
       const response = await api.put(`/budgets/${id}`, {
         category: budgetData.category?.trim(),
-        budget: budgetData.budget ? parseFloat(budgetData.budget) : undefined,
-        month: budgetData.month,
-        notes: budgetData.notes?.trim()
+        budget: budgetData.budget !== undefined ? parseFloat(budgetData.budget) : undefined,
+        usedAmount: budgetData.usedAmount !== undefined ? parseFloat(budgetData.usedAmount) : undefined,
+        startDate: budgetData.startDate,
+        endDate: budgetData.endDate,
+        notes: budgetData.notes?.trim(),
+        status: budgetData.status
       });
       return response.data;
     } catch (error) {
@@ -89,11 +62,18 @@ export const budgetService = {
       throw error;
     }
   },
-  /**
-   * Supprime un budget
-   * @param {string} id - ID du budget
-   * @returns {Promise<Object>} Confirmation de suppression
-   */
+
+  updateUsed: async (id, usedAmount) => {
+    try {
+      if (!id) throw new Error('ID du budget requis');
+      const response = await api.patch(`/budgets/${id}/used`, { usedAmount: parseFloat(usedAmount) });
+      return response.data;
+    } catch (error) {
+      console.error(`❌ Erreur updateUsed budget ${id}:`, error);
+      throw error;
+    }
+  },
+
   delete: async (id) => {
     try {
       if (!id) throw new Error('ID du budget requis');
@@ -104,91 +84,13 @@ export const budgetService = {
       throw error;
     }
   },
-  // ===== FONCTIONS SPÉCIFIQUES =====
-  /**
-   * Récupère les budgets par mois
-   * @param {string} month - Mois (format YYYY-MM)
-   * @returns {Promise<Array>} Budgets du mois
-   */
-  getByMonth: async (month) => {
+
+  getStats: async () => {
     try {
-      if (!month) throw new Error('Le mois est requis');
-      const response = await api.get('/budgets', { 
-        params: { month } 
-      });
+      const response = await api.get('/budgets/stats');
       return response.data;
     } catch (error) {
-      console.error(`❌ Erreur getByMonth ${month}:`, error);
-      throw error;
-    }
-  },
-  /**
-   * Récupère les budgets par catégorie
-   * @param {string} category - Catégorie
-   * @returns {Promise<Array>} Budgets de la catégorie
-   */
-  getByCategory: async (category) => {
-    try {
-      if (!category) throw new Error('La catégorie est requise');
-      const response = await api.get('/budgets', { 
-        params: { category } 
-      });
-      return response.data;
-    } catch (error) {
-      console.error(`❌ Erreur getByCategory ${category}:`, error);
-      throw error;
-    }
-  },
-  /**
-   * Met à jour le montant réalisé d'un budget
-   * @param {string} id - ID du budget
-   * @param {number} amount - Montant réalisé
-   * @returns {Promise<Object>} Budget mis à jour
-   */
-  updateActual: async (id, amount) => {
-    try {
-      if (!id) throw new Error('ID du budget requis');
-      if (amount === undefined || amount === null) {
-        throw new Error('Le montant réalisé est requis');
-      }
-      const response = await api.patch(`/budgets/${id}/actual`, {
-        actual: parseFloat(amount)
-      });
-      return response.data;
-    } catch (error) {
-      console.error(`❌ Erreur updateActual budget ${id}:`, error);
-      throw error;
-    }
-  },
-  /**
-   * Calcule l'écart entre budget et réalisé
-   * @param {string} id - ID du budget
-   * @returns {Promise<Object>} Écart et pourcentage
-   */
-  getVariance: async (id) => {
-    try {
-      if (!id) throw new Error('ID du budget requis');
-      const response = await api.get(`/budgets/${id}/variance`);
-      return response.data;
-    } catch (error) {
-      console.error(`❌ Erreur getVariance budget ${id}:`, error);
-      throw error;
-    }
-  },
-  /**
-   * Récupère le résumé budgétaire pour un mois
-   * @param {string} month - Mois (format YYYY-MM)
-   * @returns {Promise<Object>} Résumé (total budget, total réalisé, statut global)
-   */
-  getSummary: async (month) => {
-    try {
-      if (!month) throw new Error('Le mois est requis');
-      const response = await api.get('/budgets/summary', { 
-        params: { month } 
-      });
-      return response.data;
-    } catch (error) {
-      console.error(`❌ Erreur getSummary ${month}:`, error);
+      console.error('❌ Erreur getStats budgets:', error);
       throw error;
     }
   }

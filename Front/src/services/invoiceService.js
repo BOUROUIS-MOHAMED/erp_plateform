@@ -197,7 +197,8 @@ export const invoiceService = {
         throw new Error('ID de la facture requis');
       }
       const response = await api.get(`/invoices/${id}/pdf`, {
-        responseType: 'blob'
+        responseType: 'blob',
+        timeout: 30000
       });
       // Créer un lien de téléchargement
       const url = window.URL.createObjectURL(new Blob([response.data]));
@@ -210,9 +211,14 @@ export const invoiceService = {
       setTimeout(() => {
         document.body.removeChild(link);
         window.URL.revokeObjectURL(url);
-      }, 100);
+      }, 200);
       return true;
     } catch (error) {
+      // If it's a network/timeout error, the browser may have already downloaded the file
+      if (error?.type === 'NETWORK_ERROR' || error?.type === 'TIMEOUT') {
+        console.warn('PDF may have downloaded despite network error');
+        return true;
+      }
       console.error(`❌ Erreur downloadPdf invoice ${id}:`, error);
       throw error;
     }

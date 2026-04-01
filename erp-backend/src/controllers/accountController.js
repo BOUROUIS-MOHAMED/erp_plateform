@@ -93,15 +93,19 @@ const generateAccountCode = async (prefix = '512') => {
     .select('code')
     .lean();
 
-  const lastCode = Number(lastAccount?.code || prefix);
+  if (!lastAccount) {
+    return `${prefix}1`;
+  }
+  const lastCode = Number(lastAccount.code);
   const nextCode = Number.isFinite(lastCode) ? lastCode + 1 : Number(`${prefix}1`);
 
   return String(nextCode);
 };
 
-const formatAccount = (account) => {
+const formatAccount = (account, soldeFromTransactions = 0) => {
   const metadata = getMetadata(account);
   const preset = getPreset(account.type, account.category);
+  const capital = Number(account.balance || 0);
 
   return {
     id: account._id,
@@ -110,7 +114,10 @@ const formatAccount = (account) => {
     number: metadata.number || account.code,
     iban: metadata.iban || '',
     bic: metadata.bic || '',
-    balance: Number(account.balance || 0),
+    balance: capital + soldeFromTransactions,
+    capital: capital,
+    solde: capital + soldeFromTransactions,
+    inMoneyFlow: Boolean(account.inMoneyFlow ?? account.inBudget),
     currency: account.currency || 'EUR',
     status: account.isActive === false ? 'inactif' : 'actif',
     notes: account.description || metadata.notes || '',
@@ -119,6 +126,25 @@ const formatAccount = (account) => {
     code: account.code,
     category: account.category
   };
+};
+
+// Compute net debit-credit for each account from validated transactions
+const computeSoldesFromTransactions = async (accountIds) => {
+  const results = await Transaction.aggregate([
+    { $match: { status: 'validé' } },
+    { $unwind: '$entries' },
+    { $match: { 'entries.account': { $in: accountIds } } },
+    { $group: {
+      _id: '$entries.account',
+      totalDebit: { $sum: '$entries.debit' },
+      totalCredit: { $sum: '$entries.credit' }
+    }}
+  ]);
+  const map = {};
+  results.forEach(r => {
+    map[r._id.toString()] = r.totalDebit - r.totalCredit;
+  });
+  return map;
 };
 
 const handleError = (error, res, defaultMessage = 'Erreur serveur') => {
@@ -130,8 +156,12 @@ const handleError = (error, res, defaultMessage = 'Erreur serveur') => {
 // ===== GET /api/accounts =====
 exports.getAll = async (req, res) => {
   try {
-    const { page = 1, limit = 50, type, status, search } = req.query;
+    const { page = 1, limit = 50, type, status, search, inMoneyFlow } = req.query;
     const filter = {};
+
+    if (inMoneyFlow !== undefined) {
+      filter.inMoneyFlow = inMoneyFlow === 'true';
+    }
 
     if (type) {
       const normalized = normalizeAccountPayload({ type });
@@ -168,16 +198,21 @@ exports.getAll = async (req, res) => {
       Account.countDocuments(filter)
     ]);
 
-    const totals = accounts.reduce(
+    const accountIds = accounts.map(a => a._id);
+    const soldeMap = await computeSoldesFromTransactions(accountIds);
+
+    const formatted = accounts.map(a => formatAccount(a, soldeMap[a._id.toString()] || 0));
+
+    const totals = formatted.reduce(
       (acc, account) => ({
-        totalBalance: acc.totalBalance + (account.balance || 0)
+        totalBalance: acc.totalBalance + (account.solde || 0)
       }),
       { totalBalance: 0 }
     );
 
     res.json({
       success: true,
-      data: accounts.map(formatAccount),
+      data: formatted,
       pagination: {
         page: parsedPage,
         limit: parsedLimit,
@@ -244,7 +279,8 @@ exports.create = async (req, res) => {
       name: String(name).trim(),
       type: normalized.type,
       category: normalized.category,
-      balance: Math.max(0, parseFloat(balance) || 0),
+      balance: parseFloat(balance) || 0,
+      inMoneyFlow: Boolean(req.body.inMoneyFlow ?? req.body.inBudget),
       currency: String(currency || 'EUR').trim().toUpperCase(),
       isActive: isActive !== undefined ? Boolean(isActive) : status !== 'inactif',
       description: String(req.body.description || req.body.notes || '').trim(),
@@ -325,8 +361,13 @@ exports.update = async (req, res) => {
     }
 
     if (updates.balance !== undefined) {
-      account.balance = Math.max(0, parseFloat(updates.balance) || 0);
+      account.balance = parseFloat(updates.balance) || 0;
       updatedFields.push('balance');
+    }
+
+    if (updates.inMoneyFlow !== undefined || updates.inBudget !== undefined) {
+      account.inMoneyFlow = Boolean(updates.inMoneyFlow ?? updates.inBudget);
+      updatedFields.push('inMoneyFlow');
     }
 
     if (updates.currency !== undefined) {
@@ -391,20 +432,13 @@ exports.delete = async (req, res) => {
       return res.status(404).json({ message: 'Compte non trouve' });
     }
 
-    const transactionCount = await Transaction.countDocuments({
+    // Delete all transactions that reference this account
+    const deletedTransactions = await Transaction.deleteMany({
       'entries.account': id
     });
 
-    if (transactionCount > 0) {
-      return res.status(400).json({
-        message: `Impossible de supprimer: ${transactionCount} transaction(s) associee(s)`
-      });
-    }
-
-    if (Math.abs(account.balance) > 0.01) {
-      return res.status(400).json({
-        message: 'Impossible de supprimer un compte avec un solde non nul'
-      });
+    if (deletedTransactions.deletedCount > 0) {
+      console.log(`Cascade delete: ${deletedTransactions.deletedCount} transaction(s) supprimee(s) pour le compte ${account.name}`);
     }
 
     await account.deleteOne();

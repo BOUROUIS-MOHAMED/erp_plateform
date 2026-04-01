@@ -46,6 +46,17 @@ export const transactionService = {
     }
   },
 
+  // Valider une transaction (brouillon → validé)
+  validate: async (id) => {
+    try {
+      const response = await api.patch(`/transactions/${id}/validate`);
+      return response.data;
+    } catch (error) {
+      console.error(`❌ Erreur validate transaction ${id}:`, error);
+      throw error;
+    }
+  },
+
   // Supprimer une transaction
   delete: async (id) => {
     try {

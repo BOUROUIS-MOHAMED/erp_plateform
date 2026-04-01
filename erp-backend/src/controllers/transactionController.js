@@ -488,25 +488,6 @@ exports.validate = async (req, res) => {
       });
     }
 
-    // Mettre à jour les soldes des comptes
-    for (const entry of transaction.entries) {
-        const account = await withOptionalSession(Account.findById(entry.account), session);
-      if (!account) {
-        throw new Error(`Compte ${entry.account} non trouvé`);
-      }
-
-      const balanceChange = (entry.debit || 0) - (entry.credit || 0);
-      
-      // Appliquer la règle selon le type de compte
-      if (account.type === 'actif' || account.type === 'charge') {
-        account.balance += balanceChange;
-      } else {
-        account.balance -= balanceChange;
-      }
-
-      await account.save(getSessionOptions(session));
-    }
-
     transaction.status = 'validé';
     transaction.validatedBy = req.user._id;
     transaction.validatedAt = Date.now();

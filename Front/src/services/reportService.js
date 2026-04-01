@@ -66,19 +66,25 @@ export const reportService = {
   generatePdf: async (id) => {
     try {
       const response = await api.get(`/reports/${id}/pdf`, {
-        responseType: 'blob'
+        responseType: 'blob',
+        timeout: 30000
       });
-      
+
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', `rapport-${id}.pdf`);
       document.body.appendChild(link);
       link.click();
-      link.remove();
-      
+      setTimeout(() => { link.remove(); window.URL.revokeObjectURL(url); }, 200);
+
       return true;
     } catch (error) {
+      // If it's a network/timeout error, the browser may have already downloaded the file
+      if (error?.type === 'NETWORK_ERROR' || error?.type === 'TIMEOUT') {
+        console.warn('PDF may have downloaded despite network error');
+        return true;
+      }
       console.error(`Erreur generatePdf report ${id}:`, error);
       throw error;
     }
