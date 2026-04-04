@@ -1,7 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/auth/Login';
 import Admin from './pages/admin/Admin';
-import StockAdmin from './pages/stock/StockAdmin';
 import FinanceAdmin from './pages/finance/FinanceAdmin';
 import FacturationAdmin from './pages/facturation/FacturationAdmin';
 
@@ -12,31 +11,16 @@ import DashboardStock from './pages/stock/DashboardStock';
 import DashboardAdmin from './pages/admin/DashboardAdmin';
 
 import { isAuthenticated, getUserRole, getHomePathForRole } from './utils/auth';
+import ProtectedRoute from './router/ProtectedRoute';
 
-/* =========================
-   PROTECTED ROUTE
-========================= */
-const ProtectedRoute = ({ children, allowedRole }) => {
-  const isAuth = isAuthenticated();
-  const userRole = getUserRole();
-
-  if (!isAuth) {
-    return <Navigate to="/login" replace />;
-  }
-
-  //  Gestion des tableaux de rôles
-  if (Array.isArray(allowedRole)) {
-    if (!allowedRole.includes(userRole)) {
-      return <Navigate to={getHomePathForRole(userRole)} replace />;
-    }
-  }
-  //  Gestion des rôles uniques
-  else if (allowedRole && userRole !== allowedRole) {
-    return <Navigate to={getHomePathForRole(userRole)} replace />;
-  }
-
-  return children;
-};
+import StockLayout from './pages/stock/layout/StockLayout';
+import StockProductsPage    from './pages/stock/pages/ProductsPage';
+import StockCategoriesPage  from './pages/stock/pages/CategoriesPage';
+import StockMovementsPage   from './pages/stock/pages/MovementsPage';
+import StockAlertsPage      from './pages/stock/pages/AlertsPage';
+import StockReportsPage     from './pages/stock/pages/ReportsPage';
+import StockSuppliersPage   from './pages/stock/pages/SuppliersPage';
+import StockSettingsPage    from './pages/stock/pages/SettingsPage';
 
 /* =========================
    REDIRECT TO HOME
@@ -118,25 +102,21 @@ function App() {
           }
         />
 
-        {/* Route /stock avec DOUBLE ACCÈS */}
+        {/* Route /stock avec DOUBLE ACCÈS — nested */}
         <Route
           path="/stock"
-          element={
-            <ProtectedRoute allowedRole={["admin_stock", "admin_principal"]}>
-              <StockAdmin />
-            </ProtectedRoute>
-          }
-        />
-
-        {/*  ROUTE /stock/dashboard avec DOUBLE ACCÈS (UNE SEULE FOIS) */}
-        <Route
-          path="/stock/dashboard"
-          element={
-            <ProtectedRoute allowedRole={["admin_stock", "admin_principal"]}>
-              <DashboardStock />
-            </ProtectedRoute>
-          }
-        />
+          element={<ProtectedRoute allowedRole={["admin_stock", "admin_principal"]}><StockLayout /></ProtectedRoute>}
+        >
+          <Route index element={<Navigate to="products" replace />} />
+          <Route path="products"   element={<StockProductsPage />} />
+          <Route path="categories" element={<StockCategoriesPage />} />
+          <Route path="movements"  element={<StockMovementsPage />} />
+          <Route path="alerts"     element={<StockAlertsPage />} />
+          <Route path="reports"    element={<StockReportsPage />} />
+          <Route path="suppliers"  element={<StockSuppliersPage />} />
+          <Route path="settings"   element={<StockSettingsPage />} />
+          <Route path="dashboard"  element={<DashboardStock />} />
+        </Route>
 
         {/* Route /admin/dashboard */}
         <Route
