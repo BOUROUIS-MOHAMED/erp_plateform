@@ -1,7 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/auth/Login';
 import Admin from './pages/admin/Admin';
-import FacturationAdmin from './pages/facturation/FacturationAdmin';
 
 // IMPORT DES NOUVEAUX DASHBOARDS
 import DashboardFinancier from './pages/finance/DashboardFinancier';
@@ -11,6 +10,14 @@ import DashboardAdmin from './pages/admin/DashboardAdmin';
 
 import { isAuthenticated, getUserRole, getHomePathForRole } from './utils/auth';
 import ProtectedRoute from './router/ProtectedRoute';
+
+import FacturationLayout       from './pages/facturation/layout/FacturationLayout'
+import FacturationOrdersPage   from './pages/facturation/pages/OrdersPage'
+import FacturationClientsPage  from './pages/facturation/pages/ClientsPage'
+import FacturationInvoicesPage from './pages/facturation/pages/InvoicesPage'
+import FacturationReportsPage  from './pages/facturation/pages/ReportsPage'
+import FacturationArchivePage  from './pages/facturation/pages/ArchivePage'
+import FacturationSettingsPage from './pages/facturation/pages/SettingsPage'
 
 import StockLayout from './pages/stock/layout/StockLayout';
 import StockProductsPage    from './pages/stock/pages/ProductsPage';
@@ -86,25 +93,20 @@ function App() {
           <Route path="dashboard"    element={<DashboardFinancier />} />
         </Route>
 
-        {/* Route /facturation avec DOUBLE ACCÈS */}
+        {/* Route /facturation avec DOUBLE ACCÈS — nested */}
         <Route
           path="/facturation"
-          element={
-            <ProtectedRoute allowedRole={["admin_facture", "admin_principal"]}>
-              <FacturationAdmin />
-            </ProtectedRoute>
-          }
-        />
-
-        {/*  ROUTE /facturation/dashboard avec DOUBLE ACCÈS */}
-        <Route
-          path="/facturation/dashboard"
-          element={
-            <ProtectedRoute allowedRole={["admin_facture", "admin_principal"]}>
-              <DashboardFacturation />
-            </ProtectedRoute>
-          }
-        />
+          element={<ProtectedRoute allowedRole={["admin_facture","admin_principal"]}><FacturationLayout /></ProtectedRoute>}
+        >
+          <Route index element={<Navigate to="orders" replace />} />
+          <Route path="orders"    element={<FacturationOrdersPage />} />
+          <Route path="clients"   element={<FacturationClientsPage />} />
+          <Route path="invoices"  element={<FacturationInvoicesPage />} />
+          <Route path="reports"   element={<FacturationReportsPage />} />
+          <Route path="archive"   element={<FacturationArchivePage />} />
+          <Route path="settings"  element={<FacturationSettingsPage />} />
+          <Route path="dashboard" element={<DashboardFacturation />} />
+        </Route>
 
         {/* Route /stock avec DOUBLE ACCÈS — nested */}
         <Route
