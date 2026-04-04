@@ -1,12 +1,18 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/auth/Login';
-import Admin from './pages/admin/Admin';
 
 // IMPORT DES NOUVEAUX DASHBOARDS
 import DashboardFinancier from './pages/finance/DashboardFinancier';
 import DashboardFacturation from './pages/facturation/DashboardFacturation';
 import DashboardStock from './pages/stock/DashboardStock';
 import DashboardAdmin from './pages/admin/DashboardAdmin';
+
+import AdminLayout              from './pages/admin/layout/AdminLayout';
+import AdminAccueilPage         from './pages/admin/pages/AccueilPage';
+import AdminModulesPage         from './pages/admin/pages/ModulesPage';
+import AdminAccountsPage        from './pages/admin/pages/AccountsPage';
+import AdminCreateAccountPage   from './pages/admin/pages/CreateAccountPage';
+import AdminSettingsPage        from './pages/admin/pages/SettingsPage';
 
 import { isAuthenticated, getUserRole, getHomePathForRole } from './utils/auth';
 import ProtectedRoute from './router/ProtectedRoute';
@@ -67,15 +73,19 @@ function App() {
         {/* Login */}
         <Route path="/login" element={<Login />} />
 
-        {/* Admin principal */}
+        {/* Admin principal — nested */}
         <Route
           path="/admin"
-          element={
-            <ProtectedRoute allowedRole="admin_principal">
-              <Admin />
-            </ProtectedRoute>
-          }
-        />
+          element={<ProtectedRoute allowedRole="admin_principal"><AdminLayout /></ProtectedRoute>}
+        >
+          <Route index element={<Navigate to="accueil" replace />} />
+          <Route path="accueil"        element={<AdminAccueilPage />} />
+          <Route path="modules"        element={<AdminModulesPage />} />
+          <Route path="accounts"       element={<AdminAccountsPage />} />
+          <Route path="create-account" element={<AdminCreateAccountPage />} />
+          <Route path="settings"       element={<AdminSettingsPage />} />
+          <Route path="dashboard"      element={<DashboardAdmin />} />
+        </Route>
 
         {/* Route /finance avec DOUBLE ACCÈS — nested */}
         <Route
@@ -123,16 +133,6 @@ function App() {
           <Route path="settings"   element={<StockSettingsPage />} />
           <Route path="dashboard"  element={<DashboardStock />} />
         </Route>
-
-        {/* Route /admin/dashboard */}
-        <Route
-          path="/admin/dashboard"
-          element={
-            <ProtectedRoute allowedRole="admin_principal">
-              <DashboardAdmin />
-            </ProtectedRoute>
-          }
-        />
 
         {/* Redirect old role paths */}
         <Route path="/admin_principal" element={<Navigate to="/admin" replace />} />

@@ -2,8 +2,7 @@
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import userService from "../../../services/userService"
-import moduleService from "../../../services/moduleService"
-import { mapUserToAdminAccount, pickList, extractApiErrorMessage } from "../../../utils/frontendApiAdapters"
+import { extractApiErrorMessage } from "../../../utils/frontendApiAdapters"
 
 function AccueilPage() {
   const navigate = useNavigate()
