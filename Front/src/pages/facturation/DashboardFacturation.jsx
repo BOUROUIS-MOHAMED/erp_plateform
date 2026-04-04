@@ -2,8 +2,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getUserRole } from '../../utils/auth';
-import ModuleDisabledView from '../../components/ModuleDisabledView';
-import { useModuleAvailability } from '../../hooks/useModuleAvailability';
 import api from '../../services/api';
 import { extractApiErrorMessage, mapInvoiceToUi } from '../../utils/frontendApiAdapters';
 import './DashboardFacturation.css';
@@ -13,7 +11,6 @@ const DashboardFacturation = () => {
   const [userRole, setUserRole] = useState('');
   const [factures, setFactures] = useState([]);
   const [errorMessage, setErrorMessage] = useState('');
-  const { blocked, checking } = useModuleAvailability('facturation');
 
   useEffect(() => {
     const role = getUserRole();
@@ -66,18 +63,6 @@ const DashboardFacturation = () => {
   };
 
   const totalAmount = factures.reduce((total, facture) => total + (facture.amount || 0), 0);
-
-  if (checking) {
-    return (
-      <div className="dashboard-facturation">
-        <p>Chargement...</p>
-      </div>
-    );
-  }
-
-  if (blocked) {
-    return <ModuleDisabledView accentColor="#f59e0b" moduleLabel="Facturation" />;
-  }
 
   return (
     <div className="dashboard-facturation">
