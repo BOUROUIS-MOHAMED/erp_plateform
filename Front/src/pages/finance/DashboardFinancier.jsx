@@ -2,8 +2,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getUserRole } from '../../utils/auth';
-import ModuleDisabledView from '../../components/ModuleDisabledView';
-import { useModuleAvailability } from '../../hooks/useModuleAvailability';
 import api from '../../services/api';
 import { extractApiErrorMessage, mapTransactionToUi } from '../../utils/frontendApiAdapters';
 import './DashboardFinancier.css';
@@ -18,7 +16,6 @@ const DashboardFinancier = () => {
     benefice: 0,
   });
   const [errorMessage, setErrorMessage] = useState('');
-  const { blocked, checking } = useModuleAvailability('finance');
 
   useEffect(() => {
     const role = getUserRole();
@@ -80,18 +77,6 @@ const DashboardFinancier = () => {
 
     navigate('/');
   };
-
-  if (checking) {
-    return (
-      <div className="dashboard-financier">
-        <p>Chargement...</p>
-      </div>
-    );
-  }
-
-  if (blocked) {
-    return <ModuleDisabledView accentColor="#4299e1" moduleLabel="Finance" />;
-  }
 
   return (
     <div className="dashboard-financier">
