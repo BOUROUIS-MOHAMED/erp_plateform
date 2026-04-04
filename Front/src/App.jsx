@@ -1,7 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/auth/Login';
 import Admin from './pages/admin/Admin';
-import FinanceAdmin from './pages/finance/FinanceAdmin';
 import FacturationAdmin from './pages/facturation/FacturationAdmin';
 
 // IMPORT DES NOUVEAUX DASHBOARDS
@@ -21,6 +20,15 @@ import StockAlertsPage      from './pages/stock/pages/AlertsPage';
 import StockReportsPage     from './pages/stock/pages/ReportsPage';
 import StockSuppliersPage   from './pages/stock/pages/SuppliersPage';
 import StockSettingsPage    from './pages/stock/pages/SettingsPage';
+
+import FinanceLayout            from './pages/finance/layout/FinanceLayout';
+import FinanceTransactionsPage  from './pages/finance/pages/TransactionsPage';
+import FinanceAccountsPage      from './pages/finance/pages/AccountsPage';
+import FinanceBudgetsPage       from './pages/finance/pages/BudgetsPage';
+import FinanceTargetsPage       from './pages/finance/pages/TargetsPage';
+import FinanceMoneyFlowPage     from './pages/finance/pages/MoneyFlowPage';
+import FinanceReportsPage       from './pages/finance/pages/ReportsPage';
+import FinanceSettingsPage      from './pages/finance/pages/SettingsPage';
 
 /* =========================
    REDIRECT TO HOME
@@ -62,25 +70,21 @@ function App() {
           }
         />
 
-        {/* Route /finance avec DOUBLE ACCÈS */}
+        {/* Route /finance avec DOUBLE ACCÈS — nested */}
         <Route
           path="/finance"
-          element={
-            <ProtectedRoute allowedRole={["admin_finance", "admin_principal"]}>
-              <FinanceAdmin />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* ROUTE /finance/dashboard avec DOUBLE ACCÈS */}
-        <Route
-          path="/finance/dashboard"
-          element={
-            <ProtectedRoute allowedRole={["admin_finance", "admin_principal"]}>
-              <DashboardFinancier />
-            </ProtectedRoute>
-          }
-        />
+          element={<ProtectedRoute allowedRole={["admin_finance","admin_principal"]}><FinanceLayout /></ProtectedRoute>}
+        >
+          <Route index element={<Navigate to="transactions" replace />} />
+          <Route path="transactions" element={<FinanceTransactionsPage />} />
+          <Route path="accounts"     element={<FinanceAccountsPage />} />
+          <Route path="budgets"      element={<FinanceBudgetsPage />} />
+          <Route path="targets"      element={<FinanceTargetsPage />} />
+          <Route path="moneyflow"    element={<FinanceMoneyFlowPage />} />
+          <Route path="reports"      element={<FinanceReportsPage />} />
+          <Route path="settings"     element={<FinanceSettingsPage />} />
+          <Route path="dashboard"    element={<DashboardFinancier />} />
+        </Route>
 
         {/* Route /facturation avec DOUBLE ACCÈS */}
         <Route
