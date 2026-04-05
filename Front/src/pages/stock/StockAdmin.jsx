@@ -117,10 +117,10 @@ function StockAdmin(){
   const toggleAlertRead=(type,productId)=>{setReadAlerts(prev=>{const cur=prev[type]||[];const next=cur.includes(productId)?cur.filter(i=>i!==productId):[...cur,productId];const upd={...prev,[type]:next};localStorage.setItem('erp_stock_alerts_read',JSON.stringify(upd));return upd})}
 
   // Formulaires
-  const [cf,setCf]=useState({name:"",description:""})
-  const [pf,setPf]=useState({name:"",category:"",stock:"",price:"",status:STATUS.IN_STOCK,supplierId:""})
+  const [cf,setCf]=useState({name:"",code:"",description:""})
+  const [pf,setPf]=useState({name:"",code:"",category:"",stock:"",price:"",status:STATUS.IN_STOCK,supplierId:""})
   const [mf,setMf]=useState({productId:"",product:"",type:MV.IN,quantity:"",date:new Date().toISOString().split('T')[0],note:""})
-  const [sf,setSf]=useState({name:"",contact:"",email:"",phone:"",address:"",status:"actif",rating:4})
+  const [sf,setSf]=useState({name:"",code:"",contact:"",email:"",phone:"",address:"",status:"actif",rating:4})
   const [rf,setRf]=useState({title:"",description:"",icon:"📄",type:"custom"})
   const [fe,setFe]=useState({})
 
@@ -254,6 +254,9 @@ function StockAdmin(){
   const fr=useMemo(()=>reports.filter(r=>!f.reportSearch||r.title.toLowerCase().includes(f.reportSearch.toLowerCase())||r.description.toLowerCase().includes(f.reportSearch.toLowerCase())),[reports,f.reportSearch])
   // Filtre catégories
   const fc=useMemo(()=>cat.filter(c=>!f.categorySearch||c.name.toLowerCase().includes(f.categorySearch.toLowerCase())),[cat,f.categorySearch])
+  const categoryByName=useMemo(()=>new Map(cat.map(c=>[c.name,c])),[cat])
+  const supplierById=useMemo(()=>new Map(supp.map(s=>[String(s.id),s])),[supp])
+  const productById=useMemo(()=>new Map(prod.map(p=>[String(p.id),p])),[prod])
 
   const updateFilter=(k,v)=>setF(p=>({...p,[k]:v}))
   const clearFilters=useCallback(()=>setF({movement:"all",productName:"",productCategory:"",productStatus:"",date:"",searchProduct:"",startDate:"",endDate:"",supplierName:"",supplierStatus:"",supplierRating:"",reportSearch:"",categorySearch:""}),[])
@@ -262,12 +265,14 @@ function StockAdmin(){
   const vCat=useCallback(()=>{
     const e={}
     if(!cf.name.trim()) e.name="Nom requis";else if(cf.name.length>50) e.name="Max 50"
+    if(!cf.code.trim()) e.code="Clé requise";else if(cf.code.length>50) e.code="Max 50"
     if(cf.description.length>200) e.description="Max 200"
     return e
   },[cf])
   const vProd=useCallback(()=>{
     const e={}
     if(!pf.name.trim()) e.name="Nom requis";else if(pf.name.length>100) e.name="Max 100"
+    if(!pf.code.trim()) e.code="Clé requise";else if(pf.code.length>50) e.code="Max 50"
     if(!pf.category) e.category="Catégorie requise"
     if(!pf.supplierId) e.supplierId="Fournisseur requis"
     if(pf.stock&&parseInt(pf.stock)<0) e.stock="Stock positif"
@@ -284,6 +289,7 @@ function StockAdmin(){
   const vSupp=useCallback(()=>{
     const e={}
     if(!sf.name.trim()) e.name="Nom requis"
+    if(!sf.code.trim()) e.code="Clé requise";else if(sf.code.length>50) e.code="Max 50"
     if(!sf.contact.trim()) e.contact="Contact requis"
     if(!sf.email.trim()) e.email="Email requis"
     else if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(sf.email)) e.email="Email invalide"
@@ -301,22 +307,22 @@ function StockAdmin(){
   },[rf])
 
   // ===== RESET FORMULAIRES =====
-  const rCat=useCallback(()=>{setCf({name:"",description:""});setEc(null);setFe({})},[])
-  const rProd=useCallback(()=>{setPf({name:"",category:"",stock:"",price:"",status:STATUS.IN_STOCK,supplierId:""});setEp(null);setFe({})},[])
+  const rCat=useCallback(()=>{setCf({name:"",code:"",description:""});setEc(null);setFe({})},[])
+  const rProd=useCallback(()=>{setPf({name:"",code:"",category:"",stock:"",price:"",status:STATUS.IN_STOCK,supplierId:""});setEp(null);setFe({})},[])
   const rMv=useCallback(()=>{setMf({productId:"",product:"",type:MV.IN,quantity:"",date:new Date().toISOString().split('T')[0],note:""});setFe({})},[])
-  const rSupp=useCallback(()=>{setSf({name:"",contact:"",email:"",phone:"",address:"",status:"actif",rating:4});setEs(null);setFe({})},[])
+  const rSupp=useCallback(()=>{setSf({name:"",code:"",contact:"",email:"",phone:"",address:"",status:"actif",rating:4});setEs(null);setFe({})},[])
   const rReport=useCallback(()=>{setRf({title:"",description:"",icon:"📄",type:"custom"});setEr(null);setFe({})},[])
 
   // ===== CRUD CATÉGORIES =====
   const hdlAddCat=useCallback(()=>{
     const e=vCat();if(Object.keys(e).length)return setFe(e)
-    setCat([...cat,{id:cat.length+1,name:cf.name.trim(),description:cf.description.trim(),productCount:0}])
+    setCat([...cat,{id:cat.length+1,name:cf.name.trim(),code:cf.code.trim().toUpperCase(),description:cf.description.trim(),productCount:0}])
     rCat();setMod(p=>({...p,category:false}))
   },[cat,cf,vCat,rCat])
 
   const hdlUpdCat=useCallback(()=>{
     const e=vCat();if(Object.keys(e).length)return setFe(e)
-    setCat(cat.map(c=>c.id===ec.id?{...c,name:cf.name.trim(),description:cf.description.trim()}:c))
+    setCat(cat.map(c=>c.id===ec.id?{...c,name:cf.name.trim(),code:cf.code.trim().toUpperCase(),description:cf.description.trim()}:c))
     if(ec.name!==cf.name) setProd(prod.map(p=>p.category===ec.name?{...p,category:cf.name}:p))
     rCat();setMod(p=>({...p,category:false}))
   },[cat,prod,ec,cf,vCat,rCat])
@@ -332,7 +338,7 @@ function StockAdmin(){
   const hdlAddProd=useCallback(()=>{
     const e=vProd();if(Object.keys(e).length)return setFe(e)
     const stock=parseInt(pf.stock)||0
-    const newProd={id:prod.length+1,name:pf.name.trim(),category:pf.category,stock,price:parseInt(pf.price)||0,status:updStatus(stock),supplierId:parseInt(pf.supplierId)}
+    const newProd={id:prod.length+1,name:pf.name.trim(),code:pf.code.trim().toUpperCase(),category:pf.category,stock,price:parseInt(pf.price)||0,status:updStatus(stock),supplierId:parseInt(pf.supplierId)}
     setProd([...prod,newProd])
     setCat(cat.map(c=>c.name===pf.category?{...c,productCount:c.productCount+1}:c))
     setSupp(supp.map(s=>s.id===parseInt(pf.supplierId)?{...s,products:s.products+1}:s))
@@ -345,7 +351,7 @@ function StockAdmin(){
     const oldCat=oldProd.category
     const oldSupplier=oldProd.supplierId
     const stock=parseInt(pf.stock)||0
-    setProd(prod.map(p=>p.id===ep.id?{...ep,name:pf.name.trim(),category:pf.category,stock,price:parseInt(pf.price)||0,status:updStatus(stock),supplierId:parseInt(pf.supplierId)}:p))
+    setProd(prod.map(p=>p.id===ep.id?{...ep,name:pf.name.trim(),code:pf.code.trim().toUpperCase(),category:pf.category,stock,price:parseInt(pf.price)||0,status:updStatus(stock),supplierId:parseInt(pf.supplierId)}:p))
     if(oldCat!==pf.category) setCat(cat.map(c=>{
       if(c.name===oldCat) return{...c,productCount:c.productCount-1}
       if(c.name===pf.category) return{...c,productCount:c.productCount+1}
@@ -402,6 +408,7 @@ function StockAdmin(){
     setSupp([...supp,{
       id:supp.length+1,
       name:sf.name.trim(),
+      code:sf.code.trim().toUpperCase(),
       contact:sf.contact.trim(),
       email:sf.email.trim(),
       phone:sf.phone.trim(),
@@ -419,6 +426,7 @@ function StockAdmin(){
     setSupp(supp.map(s=>s.id===es.id?{
       ...s,
       name:sf.name.trim(),
+      code:sf.code.trim().toUpperCase(),
       contact:sf.contact.trim(),
       email:sf.email.trim(),
       phone:sf.phone.trim(),
@@ -477,9 +485,9 @@ function StockAdmin(){
   },[])
 
   // ===== ÉDITION =====
-  const hdlEditCat=cat=>{setEc(cat);setCf({name:cat.name,description:cat.description||""});setMod(p=>({...p,category:true}))}
-  const hdlEditProd=prod=>{setEp(prod);setPf({name:prod.name,category:prod.category,stock:prod.stock.toString(),price:prod.price.toString(),status:prod.status,supplierId:prod.supplierId});setMod(p=>({...p,product:true}))}
-  const hdlEditSupp=supp=>{setEs(supp);setSf({name:supp.name,contact:supp.contact,email:supp.email,phone:supp.phone,address:supp.address||"",status:supp.status,rating:supp.rating});setMod(p=>({...p,supplier:true}))}
+  const hdlEditCat=cat=>{setEc(cat);setCf({name:cat.name,code:cat.code||"",description:cat.description||""});setMod(p=>({...p,category:true}))}
+  const hdlEditProd=prod=>{setEp(prod);setPf({name:prod.name,code:prod.code||"",category:prod.category,stock:prod.stock.toString(),price:prod.price.toString(),status:prod.status,supplierId:prod.supplierId});setMod(p=>({...p,product:true}))}
+  const hdlEditSupp=supp=>{setEs(supp);setSf({name:supp.name,code:supp.code||"",contact:supp.contact,email:supp.email,phone:supp.phone,address:supp.address||"",status:supp.status,rating:supp.rating});setMod(p=>({...p,supplier:true}))}
   const hdlEditReport=report=>{setEr(report);setRf({title:report.title,description:report.description,icon:report.icon||"📄",type:report.type||"custom"});setMod(p=>({...p,report:true}))}
   const hdlViewReport=report=>{setVr(report);setMod(p=>({...p,reportView:true}))}
 
@@ -725,27 +733,40 @@ function StockAdmin(){
           <div className="products-table-container">
             <table className="products-table">
               <thead><tr><th>Produit</th><th>Catégorie</th><th>Fournisseur</th><th>Stock</th><th>Prix</th><th>Statut</th><th>Actions</th></tr></thead>
-              <tbody>{fp.length?fp.map(p=><tr key={p.id}>
-                <td className="product-name">{p.name}</td>
-                <td>{p.category}</td>
-                <td>{supp.find(s=>s.id===p.supplierId)?.name || "-"}</td>
-                <td className={p.stock===0?"text-danger":p.stock<10?"text-warning":""}><strong>{p.stock}</strong></td>
-                <td>{p.price} €</td>
-                <td><StatusBadge status={p.status}/></td>
-                <td><div className="action-buttons"><button className="btn-icon" onClick={()=>hdlEditProd(p)}>✏️</button><button className="btn-icon" onClick={()=>hdlDelProdRemote(p.id,p.category,p.supplierId)}>🗑️</button></div></td>
-              </tr>):<tr><td colSpan="7" className="no-data-row"><div className="no-data-message">Aucun produit</div></td></tr>}</tbody>
+              <tbody>{fp.length?fp.map(p=>{
+                const category=categoryByName.get(p.category)
+                const supplier=supplierById.get(String(p.supplierId))
+                return <tr key={p.id}>
+                  <td className="product-name">{p.name}<small className="entity-meta">ID: {p.id}<br/>Clé: {p.code||"-"}</small></td>
+                  <td>{p.category}<small className="entity-meta">ID: {category?.id||"-"}<br/>Clé: {category?.code||"-"}</small></td>
+                  <td>{supplier?.name || "-"}<small className="entity-meta">ID: {supplier?.id||"-"}<br/>Clé: {supplier?.code||"-"}</small></td>
+                  <td className={p.stock===0?"text-danger":p.stock<10?"text-warning":""}><strong>{p.stock}</strong></td>
+                  <td>{p.price} €</td>
+                  <td><StatusBadge status={p.status}/></td>
+                  <td><div className="action-buttons"><button className="btn-icon" onClick={()=>hdlEditProd(p)}>✏️</button><button className="btn-icon" onClick={()=>hdlDelProdRemote(p.id,p.category,p.supplierId)}>🗑️</button></div></td>
+                </tr>
+              }):<tr><td colSpan="7" className="no-data-row"><div className="no-data-message">Aucun produit</div></td></tr>}</tbody>
             </table>
 
-            <div className="products-table-mobile">{fp.length?fp.map(p=><article key={p.id} className="product-card-mobile">
+            <div className="products-table-mobile">{fp.length?fp.map(p=>{
+              const category=categoryByName.get(p.category)
+              const supplier=supplierById.get(String(p.supplierId))
+              return <article key={p.id} className="product-card-mobile">
               <div className="product-card-header"><h3>{p.name}</h3><StatusBadge status={p.status}/></div>
               <div className="product-card-body">
+                <div><strong>ID produit:</strong> {p.id}</div>
+                <div><strong>Clé produit:</strong> {p.code||"-"}</div>
                 <div><strong>Catégorie:</strong> {p.category}</div>
-                <div><strong>Fournisseur:</strong> {supp.find(s=>s.id===p.supplierId)?.name || "-"}</div>
+                <div><strong>ID catégorie:</strong> {category?.id||"-"}</div>
+                <div><strong>Clé catégorie:</strong> {category?.code||"-"}</div>
+                <div><strong>Fournisseur:</strong> {supplier?.name || "-"}</div>
+                <div><strong>ID fournisseur:</strong> {supplier?.id||"-"}</div>
+                <div><strong>Clé fournisseur:</strong> {supplier?.code||"-"}</div>
                 <div><strong>Stock:</strong> {p.stock}</div>
                 <div><strong>Prix:</strong> {p.price} €</div>
               </div>
               <div className="product-card-footer"><button onClick={()=>hdlEditProd(p)}>✏️</button><button onClick={()=>hdlDelProdRemote(p.id,p.category,p.supplierId)}>🗑️</button></div>
-            </article>):<div className="no-data-message">Aucun produit</div>}</div>
+            </article>}):<div className="no-data-message">Aucun produit</div>}</div>
           </div>
         </div>}
 
@@ -779,6 +800,7 @@ function StockAdmin(){
                   <div className="category-icon">📁</div>
                   <div className="category-info">
                     <h3>{c.name}</h3>
+                    <small className="entity-meta">ID: {c.id}<br/>Clé: {c.code||"-"}</small>
                     <p>{c.description}</p>
                     <div className="category-stats">
                       {c.productCount
@@ -823,6 +845,7 @@ function StockAdmin(){
               </div>
               <div className="supplier-info">
                 <h3>{s.name}</h3>
+                <small className="entity-meta">ID: {s.id}<br/>Clé: {s.code||"-"}</small>
                 <div className="supplier-rating"><RatingStars rating={s.rating}/> <span>({s.rating})</span></div>
                 <p><strong>Contact:</strong> {s.contact}</p>
                 <p><strong>Email:</strong> <a href={`mailto:${s.email}`}>{s.email}</a></p>
@@ -865,16 +888,16 @@ function StockAdmin(){
             <table className="movements-table">
               <thead><tr><th>Date</th><th>Produit</th><th>Fournisseur</th><th>Type</th><th>Qté</th><th>Note</th><th>Utilisateur</th><th>Actions</th></tr></thead>
               <tbody>{fm.length?fm.map(m=>{
-                const product = prod.find(p=>p.id===m.productId)
-                const supplier = product ? supp.find(s=>s.id===product.supplierId) : null
+                const product = productById.get(String(m.productId))
+                const supplier = supplierById.get(String(m.supplierId || product?.supplierId))
                 return <tr key={m.id}>
-                  <td><time dateTime={m.date}>{new Date(m.date).toLocaleDateString('fr-FR')}</time></td>
-                  <td className="product-name">{m.product}</td>
-                  <td>{supplier?.name || '-'}</td>
+                  <td><time dateTime={m.date}>{new Date(m.date).toLocaleDateString('fr-FR')}</time><small className="entity-meta">ID mouvement: {m.id}</small></td>
+                  <td className="product-name">{m.product}<small className="entity-meta">ID: {m.productId||'-'}<br/>Clé: {product?.code||'-'}</small></td>
+                  <td>{supplier?.name || '-'}<small className="entity-meta">ID: {supplier?.id||'-'}<br/>Clé: {supplier?.code||'-'}</small></td>
                   <td><span className={`movement-type ${m.type}`} style={{background:m.type===MV.IN?"#c6f6d5":"#fed7d7",color:m.type===MV.IN?"#22543d":"#742a2a"}}>{m.type===MV.IN?"⬆️ Entrée":"⬇️ Sortie"}</span></td>
                   <td className={m.type===MV.IN?"text-success":"text-danger"}><strong>{m.quantity}</strong></td>
                   <td className="movement-note">{m.note||"-"}</td>
-                  <td>{m.user}</td>
+                  <td>{m.user||"-"}<small className="entity-meta">ID user: {m.userId||"-"}</small></td>
                   <td><button className="btn-icon" onClick={()=>hdlDelMvRemote(m.id)}>🗑️</button></td>
                 </tr>
               }):<tr><td colSpan="8" className="no-data-row"><div className="no-data-message">Aucun mouvement</div></td></tr>}</tbody>
@@ -995,18 +1018,20 @@ function StockAdmin(){
     {/* ===== MODALES ===== */}
     <Modal isOpen={mod.category} onClose={()=>{setMod(p=>({...p,category:false}));rCat()}} title={ec?'✏️ Modifier':'➕ Nouvelle catégorie'} onConfirm={ec?hdlUpdCatRemote:hdlAddCatRemote} confirmText={ec?'Modifier':'Créer'}>
       <FormField label="Nom" id="cat-name" error={fe.name}><input type="text" value={cf.name} onChange={e=>setCf({...cf,name:e.target.value})} autoFocus/></FormField>
+      <FormField label="Clé unique" id="cat-code" error={fe.code}><input type="text" placeholder="CA-145" value={cf.code} onChange={e=>setCf({...cf,code:e.target.value.toUpperCase()})}/></FormField>
       <FormField label="Description" id="cat-desc" error={fe.description}><textarea value={cf.description} onChange={e=>setCf({...cf,description:e.target.value})} rows="3"/></FormField>
     </Modal>
 
     <Modal isOpen={mod.product} onClose={()=>{setMod(p=>({...p,product:false}));rProd()}} title={ep?'✏️ Modifier':'➕ Nouveau produit'} onConfirm={ep?hdlUpdProdRemote:hdlAddProdRemote} confirmText={ep?'Modifier':'Ajouter'}>
       <FormField label="Nom" id="prod-name" error={fe.name}><input type="text" value={pf.name} onChange={e=>setPf({...pf,name:e.target.value})} autoFocus/></FormField>
-      <FormField label="Catégorie" id="prod-cat" error={fe.category}><select value={pf.category} onChange={e=>setPf({...pf,category:e.target.value})}><option value="">Sélectionner</option>{cat.map(c=><option key={c.id} value={c.name}>{c.name}</option>)}</select></FormField>
-      <FormField label="Fournisseur" id="prod-supplier" error={fe.supplierId}><select value={pf.supplierId} onChange={e=>setPf({...pf,supplierId:e.target.value})}><option value="">Sélectionner</option>{supp.filter(s=>s.status==='actif').map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></FormField>
+      <FormField label="Clé unique" id="prod-code" error={fe.code}><input type="text" placeholder="CA-145" value={pf.code} onChange={e=>setPf({...pf,code:e.target.value.toUpperCase()})}/></FormField>
+      <FormField label="Catégorie" id="prod-cat" error={fe.category}><select value={pf.category} onChange={e=>setPf({...pf,category:e.target.value})}><option value="">Sélectionner</option>{cat.map(c=><option key={c.id} value={c.name}>{c.name}{c.code?` (${c.code})`:''}</option>)}</select></FormField>
+      <FormField label="Fournisseur" id="prod-supplier" error={fe.supplierId}><select value={pf.supplierId} onChange={e=>setPf({...pf,supplierId:e.target.value})}><option value="">Sélectionner</option>{supp.filter(s=>s.status==='actif').map(s=><option key={s.id} value={s.id}>{s.name}{s.code?` (${s.code})`:''}</option>)}</select></FormField>
       <div className="form-row"><FormField label="Stock" id="prod-stock" error={fe.stock}><input type="number" min="0" value={pf.stock} onChange={e=>setPf({...pf,stock:e.target.value})}/></FormField><FormField label="Prix (€)" id="prod-price" error={fe.price}><input type="number" min="0" value={pf.price} onChange={e=>setPf({...pf,price:e.target.value})}/></FormField></div>
     </Modal>
 
     <Modal isOpen={mod.movement} onClose={()=>{setMod(p=>({...p,movement:false}));rMv()}} title="➕ Nouveau mouvement" onConfirm={hdlAddMvRemote} confirmText="Ajouter">
-      <FormField label="Produit" id="mvmt-prod" error={fe.productId}><select value={mf.productId} onChange={hdlProdChange}><option value="">Sélectionner</option>{prod.map(p=><option key={p.id} value={p.id}>{p.name} ({p.stock}) - {supp.find(s=>s.id===p.supplierId)?.name}</option>)}</select></FormField>
+      <FormField label="Produit" id="mvmt-prod" error={fe.productId}><select value={mf.productId} onChange={hdlProdChange}><option value="">Sélectionner</option>{prod.map(p=><option key={p.id} value={p.id}>{p.name} {p.code?`[${p.code}]`:''} ({p.stock}) - {supplierById.get(String(p.supplierId))?.name}</option>)}</select></FormField>
       <div className="form-row"><FormField label="Type" id="mvmt-type"><select value={mf.type} onChange={e=>setMf({...mf,type:e.target.value})}><option value={MV.IN}>⬆️ Entrée</option><option value={MV.OUT}>⬇️ Sortie</option></select></FormField><FormField label="Quantité" id="mvmt-qty" error={fe.quantity}><input type="number" min="1" value={mf.quantity} onChange={e=>setMf({...mf,quantity:e.target.value})}/></FormField></div>
       <FormField label="Date" id="mvmt-date"><input type="date" value={mf.date} onChange={e=>setMf({...mf,date:e.target.value})}/></FormField>
       <FormField label="Note" id="mvmt-note"><textarea value={mf.note} onChange={e=>setMf({...mf,note:e.target.value})} rows="2"/></FormField>
@@ -1015,6 +1040,7 @@ function StockAdmin(){
 
     <Modal isOpen={mod.supplier} onClose={()=>{setMod(p=>({...p,supplier:false}));rSupp()}} title={es?'✏️ Modifier fournisseur':'➕ Nouveau fournisseur'} onConfirm={es?hdlUpdSuppRemote:hdlAddSuppRemote} confirmText={es?'Modifier':'Ajouter'}>
       <FormField label="Nom entreprise" id="supp-name" error={fe.name}><input type="text" value={sf.name} onChange={e=>setSf({...sf,name:e.target.value})} autoFocus/></FormField>
+      <FormField label="Clé unique" id="supp-code" error={fe.code}><input type="text" placeholder="CA-145" value={sf.code} onChange={e=>setSf({...sf,code:e.target.value.toUpperCase()})}/></FormField>
       <FormField label="Personne de contact" id="supp-contact" error={fe.contact}><input type="text" value={sf.contact} onChange={e=>setSf({...sf,contact:e.target.value})}/></FormField>
       <div className="form-row">
         <FormField label="Email" id="supp-email" error={fe.email}><input type="email" value={sf.email} onChange={e=>setSf({...sf,email:e.target.value})}/></FormField>

@@ -43,6 +43,7 @@ const supplierService = {
     try {
       const response = await api.post('/suppliers', {
         name: supplierData.name,
+        code: supplierData.code,
         contact: supplierData.contact,
         email: supplierData.email,
         phone: supplierData.phone,
@@ -67,6 +68,7 @@ const supplierService = {
     try {
       const response = await api.put(`/suppliers/${id}`, {
         name: supplierData.name,
+        code: supplierData.code,
         contact: supplierData.contact,
         email: supplierData.email,
         phone: supplierData.phone,

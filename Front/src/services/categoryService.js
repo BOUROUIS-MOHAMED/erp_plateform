@@ -61,11 +61,19 @@ const categoryService = {
         throw new Error('Le nom de la catégorie doit être une chaîne de caractères');
       }
       const trimmedName = categoryData.name.trim();
+      const trimmedCode = typeof categoryData.code === 'string' ? categoryData.code.trim() : '';
       if (trimmedName.length === 0) {
         throw new Error('Le nom de la catégorie ne peut pas être vide');
       }
       if (trimmedName.length > 50) {
         throw new Error('Le nom de la catégorie ne peut pas dépasser 50 caractères');
+      }
+
+      if (trimmedCode.length === 0) {
+        throw new Error('La clé unique de la catégorie est requise');
+      }
+      if (trimmedCode.length > 50) {
+        throw new Error('La clé unique de la catégorie ne peut pas dépasser 50 caractères');
       }
 
       // Validation de la description (si fournie)
@@ -82,6 +90,7 @@ const categoryService = {
 
       const response = await api.post('/categories', {
         name: trimmedName,
+        code: trimmedCode,
         description: trimmedDescription
       });
       return response.data;
@@ -125,6 +134,20 @@ const categoryService = {
           throw new Error('Le nom de la catégorie ne peut pas dépasser 50 caractères');
         }
         updatedData.name = trimmedName;
+      }
+
+      if (categoryData.code !== undefined) {
+        if (typeof categoryData.code !== 'string') {
+          throw new Error('La clé unique doit être une chaîne de caractères');
+        }
+        const trimmedCode = categoryData.code.trim();
+        if (trimmedCode.length === 0) {
+          throw new Error('La clé unique de la catégorie est requise');
+        }
+        if (trimmedCode.length > 50) {
+          throw new Error('La clé unique de la catégorie ne peut pas dépasser 50 caractères');
+        }
+        updatedData.code = trimmedCode;
       }
 
       // Validation de la description (si fournie)

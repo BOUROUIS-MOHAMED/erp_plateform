@@ -100,10 +100,10 @@ const transactionSchema = new mongoose.Schema({
   },
   referenceModel: {
     type: String,
-    enum: {
-      values: ['Invoice', 'Order', 'Payment', 'Budget'],
-      message: 'Modèle de référence invalide'
-    }
+      enum: {
+        values: ['Invoice', 'Order', 'Payment'],
+        message: 'Modèle de référence invalide'
+      }
   },
   status: {
     type: String,

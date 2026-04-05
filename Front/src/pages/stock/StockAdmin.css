@@ -100,6 +100,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .products-table td,.movements-table td{padding:1rem;border-bottom:1px solid var(--g3);color:var(--g7);font-size:.9rem;vertical-align:middle}
 .products-table tr:hover,.movements-table tr:hover{background:var(--g1)}
 .product-name{font-weight:600;color:var(--g8)}
+.entity-meta{display:block;margin-top:.3rem;color:var(--g5);font-size:.72rem;line-height:1.4;word-break:break-word}
 .text-warning{color:var(--w)}
 .text-danger{color:var(--d)}
 .text-success{color:var(--p)}

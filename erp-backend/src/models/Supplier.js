@@ -7,6 +7,14 @@ const supplierSchema = new mongoose.Schema({
     trim: true,
     maxlength: 100
   },
+  code: {
+    type: String,
+    unique: true,
+    sparse: true,
+    trim: true,
+    uppercase: true,
+    maxlength: 50
+  },
   contact: { 
     type: String, 
     required: true,
@@ -64,6 +72,7 @@ const supplierSchema = new mongoose.Schema({
 
 // Index pour la recherche
 supplierSchema.index({ name: 1 });
+supplierSchema.index({ code: 1 });
 supplierSchema.index({ email: 1 });
 supplierSchema.index({ status: 1, name: 1 });
 supplierSchema.index({ name: 'text', contact: 'text', email: 'text' });

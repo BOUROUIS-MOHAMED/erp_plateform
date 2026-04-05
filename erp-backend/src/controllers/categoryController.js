@@ -16,9 +16,12 @@ const {
 const formatCategory = (category) => ({
   id: category._id,
   name: category.name,
+  code: category.code || '',
   description: category.description || '',
   productCount: category.productCount || 0
 });
+
+const escapeRegex = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /**
  * Gérer les erreurs de manière sécurisée
@@ -110,6 +113,7 @@ exports.getOne = async (req, res) => {
       products: products.map(p => ({
         id: p._id,
         name: p.name,
+        sku: p.sku || '',
         stock: p.stock,
         price: p.price,
         status: p.status,
@@ -129,7 +133,11 @@ exports.getOne = async (req, res) => {
 // ===== POST /api/categories =====
 exports.create = async (req, res) => {
   try {
-    const { name, description } = req.body;
+    const { name, description, code } = req.body;
+    const normalizedCode = typeof code === 'string' ? code.trim().toUpperCase() : '';
+    if (!normalizedCode) {
+      return res.status(400).json({ message: 'La clé unique de la catégorie est requise' });
+    }
 
     // Validation
     if (!name) {
@@ -140,13 +148,21 @@ exports.create = async (req, res) => {
     const existing = await Category.findOne({ 
       name: { $regex: new RegExp(`^${name}$`, 'i') }
     });
+    const existingCode = await Category.findOne({
+      code: { $regex: new RegExp(`^${escapeRegex(normalizedCode)}$`, 'i') }
+    });
     
     if (existing) {
       return res.status(400).json({ message: 'Une catégorie avec ce nom existe déjà' });
     }
 
+    if (existingCode) {
+      return res.status(400).json({ message: 'Une catégorie avec cette clé unique existe déjà' });
+    }
+
     const category = new Category({
       name: name.trim(),
+      code: normalizedCode,
       description: description?.trim() || '',
       productCount: 0
     });
@@ -176,7 +192,7 @@ exports.update = async (req, res) => {
   
   try {
     const { id } = req.params;
-    const { name, description } = req.body;
+    const { name, description, code } = req.body;
 
     // Validation ID
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -210,6 +226,28 @@ exports.update = async (req, res) => {
         { $set: { category: name.trim() } },
         getSessionOptions(session)
       );
+    }
+
+    if (code !== undefined) {
+      const normalizedCode = typeof code === 'string' ? code.trim().toUpperCase() : '';
+      if (!normalizedCode) {
+        await abortOptionalTransaction(session);
+        return res.status(400).json({ message: 'La clé unique de la catégorie est requise' });
+      }
+
+      if (normalizedCode !== (category.code || '')) {
+        const existingCode = await withOptionalSession(Category.findOne({
+          code: { $regex: new RegExp(`^${escapeRegex(normalizedCode)}$`, 'i') },
+          _id: { $ne: id }
+        }), session);
+
+        if (existingCode) {
+          await abortOptionalTransaction(session);
+          return res.status(400).json({ message: 'Une catégorie avec cette clé unique existe déjà' });
+        }
+      }
+
+      category.code = normalizedCode;
     }
     
     if (description !== undefined) {

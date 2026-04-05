@@ -7,14 +7,12 @@ import { useModuleAvailability } from "../../hooks/useModuleAvailability";
 import userService from "../../services/userService";
 import { accountService } from "../../services/accountService";
 import { transactionService } from "../../services/transactionService";
-import { budgetService } from "../../services/budgetService";
 import { targetService } from "../../services/targetService";
 import { moneyFlowService } from "../../services/moneyFlowService";
 import { reportService } from "../../services/reportService";
 import {
   extractApiErrorMessage,
   mapAccountToUi,
-  mapBudgetToUi,
   mapTargetToUi,
   mapMoneyFlowToUi,
   mapReportToUi,
@@ -36,9 +34,6 @@ const STATUS_CONFIG = {
   // accounts
   "actif": { color: COLORS.success, bg: COLORS.successBg },
   "inactif": { color: COLORS.muted, bg: COLORS.mutedBg },
-  // budget
-  "respected": { color: COLORS.success, bg: COLORS.successBg },
-  "passed": { color: COLORS.danger, bg: COLORS.dangerBg },
   "desactivated": { color: COLORS.muted, bg: COLORS.mutedBg },
   // target
   "in_progress": { color: COLORS.info, bg: COLORS.infoBg },
@@ -66,7 +61,6 @@ const EMPTY_FORMS = {
     date: today, status: "complété", notes: ""
   },
   account: { name: "", type: "Banque", number: "", iban: "", bic: "", balance: "", status: "actif", inMoneyFlow: false },
-  budget: { category: "", budget: "", usedAmount: "0", startDate: "", endDate: "", notes: "", status: "respected" },
   target: { category: "", amount: "", realisedAmount: "0", startDate: "", endDate: "", notes: "", status: "in_progress" },
   moneyFlow: { category: "", amount: "", date: today, isExpense: false, note: "" },
   report: { title: "", description: "", date: today }
@@ -162,7 +156,6 @@ function FinanceAdmin() {
   const [updating, setUpdating] = useState(false);
   const [transactions, setTransactions] = useState([]);
   const [accounts, setAccounts] = useState([]);
-  const [budgets, setBudgets] = useState([]);
   const [targets, setTargets] = useState([]);
   const [moneyFlows, setMoneyFlows] = useState([]);
   const [moneyFlowAccounts, setMoneyFlowAccounts] = useState([]);
@@ -170,7 +163,6 @@ function FinanceAdmin() {
   const [formData, setFormData] = useState({
     transaction: { ...EMPTY_FORMS.transaction },
     account: { ...EMPTY_FORMS.account },
-    budget: { ...EMPTY_FORMS.budget },
     target: { ...EMPTY_FORMS.target },
     moneyFlow: { ...EMPTY_FORMS.moneyFlow },
     report: { ...EMPTY_FORMS.report }
@@ -206,11 +198,10 @@ function FinanceAdmin() {
   };
 
   const loadFinanceData = async (fallbackRole = userRole, fallbackEmail = userEmail) => {
-    const [profileResponse, transactionsResponse, accountsResponse, budgetsResponse, targetsResponse, moneyFlowResponse, moneyFlowAccountsResponse, reportsResponse] = await Promise.all([
+    const [profileResponse, transactionsResponse, accountsResponse, targetsResponse, moneyFlowResponse, moneyFlowAccountsResponse, reportsResponse] = await Promise.all([
       userService.getProfile(),
       transactionService.getAll({ limit: 200 }),
       accountService.getAll({ limit: 200 }),
-      budgetService.getAll({ limit: 200 }),
       targetService.getAll({ limit: 200 }),
       moneyFlowService.getAll({ limit: 200 }),
       accountService.getAll({ limit: 200, inMoneyFlow: true }),
@@ -221,7 +212,6 @@ function FinanceAdmin() {
     applyProfileState(profile, fallbackRole, fallbackEmail);
     setTransactions(pickList(transactionsResponse, ['data']).map(mapTransactionToUi));
     setAccounts(pickList(accountsResponse, ['data']).map(mapAccountToUi));
-    setBudgets(pickList(budgetsResponse, ['data']).map(mapBudgetToUi));
     setTargets(pickList(targetsResponse, ['data']).map(mapTargetToUi));
     setMoneyFlows(pickList(moneyFlowResponse, ['data']).map(mapMoneyFlowToUi));
     setMoneyFlowAccounts(pickList(moneyFlowAccountsResponse, ['data']).map(mapAccountToUi));
@@ -299,7 +289,6 @@ function FinanceAdmin() {
       const map = {
         transaction: { ...item, amount: Math.abs(item.amount || 0).toString() },
         account: { ...item, balance: (item.capital ?? item.balance ?? 0).toString(), inMoneyFlow: Boolean(item.inMoneyFlow) },
-        budget: { ...item, budget: (item.budget || 0).toString(), usedAmount: (item.usedAmount || 0).toString() },
         target: { ...item, amount: (item.amount || 0).toString(), realisedAmount: (item.realisedAmount || 0).toString() },
         moneyFlow: { ...item, amount: (item.amount || 0).toString() },
         report: { ...item }
@@ -316,11 +305,11 @@ function FinanceAdmin() {
 
   const TABS = {
     TRANSACTIONS: "transactions", ACCOUNTS: "accounts",
-    BUDGETS: "budgets", TARGETS: "targets", MONEYFLOW: "moneyFlow",
+    TARGETS: "targets", MONEYFLOW: "moneyFlow",
     REPORTS: "reports", SETTINGS: "settings"
   };
 
-  const allDataMap = { transactions, accounts, budgets, targets, moneyFlow: moneyFlows, reports };
+  const allDataMap = { transactions, accounts, targets, moneyFlow: moneyFlows, reports };
 
   const filteredData = useMemo(() => {
     const source = allDataMap[activeTab] || [];
@@ -330,7 +319,6 @@ function FinanceAdmin() {
         const fields = {
           transactions: [item.description, item.id],
           accounts: [item.name, item.number],
-          budgets: [item.category],
           targets: [item.category],
           moneyFlow: [item.category, item.note],
           reports: [item.title, item.description]
@@ -344,7 +332,7 @@ function FinanceAdmin() {
         if (filters.account !== "tous" && item.account !== filters.account) return false;
       }
       if (activeTab === "accounts" && filters.type !== "tous" && item.type !== filters.type) return false;
-      if (["accounts", "budgets", "targets"].includes(activeTab) && filters.status !== "tous" && item.status !== filters.status) return false;
+      if (["accounts", "targets"].includes(activeTab) && filters.status !== "tous" && item.status !== filters.status) return false;
       if (activeTab === "moneyFlow" && filters.type !== "tous") {
         if (filters.type === "expense" && !item.isExpense) return false;
         if (filters.type === "revenue" && item.isExpense) return false;
@@ -353,12 +341,12 @@ function FinanceAdmin() {
       if (filters.dateRange.end && item.date && item.date > filters.dateRange.end) return false;
       return true;
     });
-  }, [activeTab, transactions, accounts, budgets, targets, moneyFlows, reports, filters]);
+  }, [activeTab, transactions, accounts, targets, moneyFlows, reports, filters]);
 
   const sortedData = useMemo(() => [...filteredData].sort((a, b) => {
     let valA = a[sort.key], valB = b[sort.key];
     if (["date", "createdAt", "startDate", "endDate"].includes(sort.key)) { valA = new Date(valA || 0); valB = new Date(valB || 0); }
-    if (["amount", "budget", "usedAmount", "balance", "realisedAmount"].includes(sort.key)) { valA = Number(valA) || 0; valB = Number(valB) || 0; }
+    if (["amount", "balance", "realisedAmount"].includes(sort.key)) { valA = Number(valA) || 0; valB = Number(valB) || 0; }
     return valA < valB ? (sort.direction === "asc" ? -1 : 1) : valA > valB ? (sort.direction === "asc" ? 1 : -1) : 0;
   }), [filteredData, sort]);
 
@@ -397,8 +385,6 @@ function FinanceAdmin() {
         }
       } else if (modal.type === "account") {
         await accountService.create({ ...form, inMoneyFlow: Boolean(form.inMoneyFlow) });
-      } else if (modal.type === "budget") {
-        await budgetService.create(form);
       } else if (modal.type === "target") {
         await targetService.create(form);
       } else if (modal.type === "moneyFlow") {
@@ -438,8 +424,6 @@ function FinanceAdmin() {
         if (form.status === 'complété') { try { await transactionService.validate(targetId); } catch (e) { console.warn('Validation call failed:', e); } }
       } else if (modal.type === "account") {
         await accountService.update(targetId, { ...form, inMoneyFlow: Boolean(form.inMoneyFlow) });
-      } else if (modal.type === "budget") {
-        await budgetService.update(targetId, form);
       } else if (modal.type === "target") {
         await targetService.update(targetId, form);
       } else if (modal.type === "moneyFlow") {
@@ -460,7 +444,6 @@ function FinanceAdmin() {
     try {
       if (modal.type === "transaction") await transactionService.delete(targetId);
       else if (modal.type === "account") await accountService.delete(targetId);
-      else if (modal.type === "budget") await budgetService.delete(targetId);
       else if (modal.type === "target") await targetService.delete(targetId);
       else if (modal.type === "moneyFlow") await moneyFlowService.delete(targetId);
       else if (modal.type === "report") await reportService.delete(targetId);
@@ -516,10 +499,6 @@ function FinanceAdmin() {
   const mfSoldesComptes = moneyFlowAccounts.reduce((s, a) => s + (a.solde || 0), 0);
   const mfNet = mfTotalRevenu - mfTotalDepense + mfSoldesComptes;
 
-  // Budget summary bar
-  const budgetTotalBudget = filteredData.reduce((s, b) => activeTab === 'budgets' ? s + (b.budget || 0) : s, 0);
-  const budgetTotalUsed = filteredData.reduce((s, b) => activeTab === 'budgets' ? s + (b.usedAmount || 0) : s, 0);
-
   // Target summary bar
   const targetTotalGoal = filteredData.reduce((s, t) => activeTab === 'targets' ? s + (t.amount || 0) : s, 0);
   const targetTotalRealised = filteredData.reduce((s, t) => activeTab === 'targets' ? s + (t.realisedAmount || 0) : s, 0);
@@ -527,14 +506,13 @@ function FinanceAdmin() {
   const addButtonLabel = {
     transactions: "Nouvelle transaction",
     accounts: "Nouveau compte",
-    budgets: "Nouveau budget",
     targets: "Nouvel objectif",
     moneyFlow: "Nouvelle entrée",
     reports: "Créer un rapport"
   }[activeTab];
 
   const addButtonType = {
-    transactions: "transaction", accounts: "account", budgets: "budget",
+    transactions: "transaction", accounts: "account",
     targets: "target", moneyFlow: "moneyFlow", reports: "report"
   }[activeTab];
 
@@ -576,8 +554,7 @@ function FinanceAdmin() {
           <NavItem id="dashboard" icon="📊" label="Dashboard Finance" isDashboard={true} />
           <NavItem id={TABS.TRANSACTIONS} icon="💰" label="Transactions" count={transactions.length} />
           <NavItem id={TABS.ACCOUNTS} icon="🏦" label="Comptes" count={accounts.filter(a => a.status === "actif").length} />
-          <NavItem id={TABS.BUDGETS} icon="📋" label="Budgets" count={budgets.length} />
-          <NavItem id={TABS.TARGETS} icon="🎯" label="Targets" count={targets.length} />
+          <NavItem id={TABS.TARGETS} icon="🎯" label="Objectifs" count={targets.length} />
           <NavItem id={TABS.MONEYFLOW} icon="💸" label="Money Flow" count={moneyFlows.length} />
           <NavItem id={TABS.REPORTS} icon="📑" label="Rapports" count={reports.length} />
           <NavItem id={TABS.SETTINGS} icon="⚙️" label="Paramètres" />
@@ -594,7 +571,6 @@ function FinanceAdmin() {
             <p className="welcome-subtitle">
               {activeTab === TABS.TRANSACTIONS && "Gérez vos transactions"}
               {activeTab === TABS.ACCOUNTS && "Gérez vos comptes"}
-              {activeTab === TABS.BUDGETS && "Suivez vos budgets"}
               {activeTab === TABS.TARGETS && "Suivez vos objectifs de revenus"}
               {activeTab === TABS.MONEYFLOW && "Flux de trésorerie"}
               {activeTab === TABS.REPORTS && "Gérez vos rapports"}
@@ -644,11 +620,6 @@ function FinanceAdmin() {
                   </select>
                 </>
               )}
-              {activeTab === TABS.BUDGETS && (
-                <select className="filter-select" value={filters.status} onChange={e => setFilters({ ...filters, status: e.target.value })}>
-                  <option value="tous">Tous statuts</option><option value="respected">Respecté</option><option value="passed">Dépassé</option><option value="desactivated">Désactivé</option>
-                </select>
-              )}
               {activeTab === TABS.TARGETS && (
                 <select className="filter-select" value={filters.status} onChange={e => setFilters({ ...filters, status: e.target.value })}>
                   <option value="tous">Tous statuts</option><option value="in_progress">En cours</option><option value="reached">Atteint</option><option value="failed">Échoué</option><option value="desactivated">Désactivé</option>
@@ -660,7 +631,7 @@ function FinanceAdmin() {
                 </select>
               )}
               <button className="btn-reset-filters" onClick={resetFilters}>↻ Réinitialiser</button>
-              {[TABS.TRANSACTIONS, TABS.BUDGETS, TABS.TARGETS].includes(activeTab) && (
+              {[TABS.TRANSACTIONS, TABS.TARGETS].includes(activeTab) && (
                 <button className="btn-export" onClick={() => exportToCSV(filteredData, activeTab)}>📥 Exporter</button>
               )}
             </div>
@@ -739,88 +710,23 @@ function FinanceAdmin() {
           </div>
         )}
 
-        {/* ===== BUDGETS TAB (redesigned) ===== */}
-        {activeTab === TABS.BUDGETS && (
-          <div className="budgets-content">
-            <div className="budgets-summary">
-              {[
-                { label: "Budget total", value: formatCurrency(budgetTotalBudget) },
-                { label: "Total utilisé", value: formatCurrency(budgetTotalUsed) },
-                { label: "Variance", value: formatCurrency(budgetTotalUsed - budgetTotalBudget), className: budgetTotalUsed <= budgetTotalBudget ? "text-success" : "text-danger" },
-                { label: "Taux global", value: budgetTotalBudget > 0 ? `${((budgetTotalUsed / budgetTotalBudget) * 100).toFixed(1)}%` : "0%" }
-              ].map((item, i) => (
-                <div key={i} className="budget-summary-card">
-                  <span>{item.label}</span>
-                  <strong className={item.className}>{item.value}</strong>
-                </div>
-              ))}
-            </div>
-            <div className="table-container">
-              <table className="budgets-table">
-                <thead><tr>
-                  <th onClick={() => setSort({ key: "category", direction: sort.direction === "asc" ? "desc" : "asc" })}>
-                    Catégorie {sort.key === "category" && (sort.direction === "asc" ? "↑" : "↓")}
-                  </th>
-                  <th onClick={() => setSort({ key: "budget", direction: sort.direction === "asc" ? "desc" : "asc" })}>
-                    Montant {sort.key === "budget" && (sort.direction === "asc" ? "↑" : "↓")}
-                  </th>
-                  <th>Utilisé</th>
-                  <th>Usage %</th>
-                  <th>Statut</th>
-                  <th>Début</th>
-                  <th>Fin</th>
-                  <th>Actions</th>
-                </tr></thead>
-                <tbody>
-                  {paginatedData.map(b => {
-                    const percentUsed = b.budget > 0 ? ((b.usedAmount || 0) / b.budget) * 100 : 0;
-                    const progressColor = percentUsed > 100 ? COLORS.danger : percentUsed > 90 ? COLORS.warning : COLORS.success;
-                    return (
-                      <tr key={b.id}>
-                        <td className="budget-category">{b.category}{b.notes && <small className="notes-indicator" title={b.notes}>📝</small>}</td>
-                        <td>{formatCurrency(b.budget)}</td>
-                        <td>{formatCurrency(b.usedAmount)}</td>
-                        <td>
-                          <div className="progress-bar-container">
-                            <div className="progress-bar" style={{ width: `${Math.min(percentUsed, 100)}%`, background: progressColor }}></div>
-                            <span className="progress-text">{percentUsed.toFixed(1)}%</span>
-                          </div>
-                        </td>
-                        <td><StatusBadge status={b.status} /></td>
-                        <td>{formatDate(b.startDate)}</td>
-                        <td>{formatDate(b.endDate)}</td>
-                        <td><div className="action-buttons">
-                          <button className="action-btn" onClick={() => openModal("budget", "edit", b)}>✏️</button>
-                          <button className="action-btn delete" onClick={() => openModal("budget", "delete", b)}>🗑️</button>
-                        </div></td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              {!filteredData.length && <NoResults onReset={resetFilters} />}
-            </div>
-            <Pagination total={filteredData.length} pagination={pagination} setPagination={setPagination} />
-          </div>
-        )}
-
         {/* ===== TARGETS TAB ===== */}
         {activeTab === TABS.TARGETS && (
-          <div className="budgets-content">
-            <div className="budgets-summary">
+          <div className="finance-overview-content">
+            <div className="finance-summary-grid">
               {[
                 { label: "Total objectifs", value: formatCurrency(targetTotalGoal) },
                 { label: "Total réalisé", value: formatCurrency(targetTotalRealised) },
                 { label: "Taux de réussite", value: targetTotalGoal > 0 ? `${((targetTotalRealised / targetTotalGoal) * 100).toFixed(1)}%` : "0%" }
               ].map((item, i) => (
-                <div key={i} className="budget-summary-card">
+                <div key={i} className="finance-summary-card">
                   <span>{item.label}</span>
                   <strong>{item.value}</strong>
                 </div>
               ))}
             </div>
             <div className="table-container">
-              <table className="budgets-table">
+              <table className="finance-overview-table">
                 <thead><tr>
                   <th onClick={() => setSort({ key: "category", direction: sort.direction === "asc" ? "desc" : "asc" })}>
                     Catégorie {sort.key === "category" && (sort.direction === "asc" ? "↑" : "↓")}
@@ -841,7 +747,7 @@ function FinanceAdmin() {
                     const progressColor = progression >= 100 ? COLORS.success : progression > 70 ? COLORS.warning : COLORS.info;
                     return (
                       <tr key={t.id}>
-                        <td className="budget-category">{t.category}{t.notes && <small className="notes-indicator" title={t.notes}>📝</small>}</td>
+                        <td className="finance-category-cell">{t.category}{t.notes && <small className="notes-indicator" title={t.notes}>📝</small>}</td>
                         <td>{formatCurrency(t.amount)}</td>
                         <td>{formatCurrency(t.realisedAmount)}</td>
                         <td>
@@ -870,16 +776,16 @@ function FinanceAdmin() {
 
         {/* ===== MONEY FLOW TAB ===== */}
         {activeTab === TABS.MONEYFLOW && (
-          <div className="budgets-content">
+          <div className="finance-overview-content">
             {/* Summary bar */}
-            <div className="budgets-summary">
+            <div className="finance-summary-grid">
               {[
                 { label: "Total revenus", value: formatCurrency(mfTotalRevenu), className: "text-success" },
                 { label: "Total dépenses", value: formatCurrency(mfTotalDepense), className: "text-danger" },
                 { label: "Soldes comptes", value: formatCurrency(mfSoldesComptes) },
                 { label: "NET", value: formatCurrency(mfNet), className: mfNet >= 0 ? "text-success" : "text-danger" }
               ].map((item, i) => (
-                <div key={i} className="budget-summary-card">
+                <div key={i} className="finance-summary-card">
                   <span>{item.label}</span>
                   <strong className={item.className}>{item.value}</strong>
                 </div>
@@ -887,7 +793,7 @@ function FinanceAdmin() {
             </div>
 
             <div className="table-container">
-              <table className="budgets-table">
+              <table className="finance-overview-table">
                 <thead><tr>
                   <th onClick={() => setSort({ key: "category", direction: sort.direction === "asc" ? "desc" : "asc" })}>
                     Catégorie {sort.key === "category" && (sort.direction === "asc" ? "↑" : "↓")}
@@ -906,7 +812,7 @@ function FinanceAdmin() {
                   {/* Manual MoneyFlow entries */}
                   {paginatedData.map(e => (
                     <tr key={e.id}>
-                      <td className="budget-category">{e.category}</td>
+                      <td className="finance-category-cell">{e.category}</td>
                       <td className={e.isExpense ? "text-danger" : "text-success"}>
                         <strong>{e.isExpense ? "-" : "+"}{formatCurrency(e.amount)}</strong>
                       </td>
@@ -926,7 +832,7 @@ function FinanceAdmin() {
                   {/* Account balance rows (read-only) */}
                   {moneyFlowAccounts.map(a => (
                     <tr key={`acc-${a.id}`} style={{ background: "#f7fafc" }}>
-                      <td className="budget-category">🏦 {a.name}</td>
+                      <td className="finance-category-cell">🏦 {a.name}</td>
                       <td className={a.solde >= 0 ? "text-success" : "text-danger"}>
                         <strong>{formatCurrency(a.solde)}</strong>
                       </td>
@@ -1045,7 +951,6 @@ function FinanceAdmin() {
             <div className="modal-body">
               {modal.type === "transaction" && <TransactionForm formData={formData} setFormData={setFormData} accounts={accounts} />}
               {modal.type === "account" && <AccountForm formData={formData} setFormData={setFormData} />}
-              {modal.type === "budget" && <BudgetForm formData={formData} setFormData={setFormData} />}
               {modal.type === "target" && <TargetForm formData={formData} setFormData={setFormData} />}
               {modal.type === "moneyFlow" && <MoneyFlowForm formData={formData} setFormData={setFormData} />}
               {modal.type === "report" && <ReportForm formData={formData} setFormData={setFormData} />}
@@ -1151,41 +1056,6 @@ const AccountForm = ({ formData, setFormData }) => {
         <small style={{ color: '#718096' }}>Ce compte apparaîtra dans Money Flow</small>
       </div>
     </div>
-  </>);
-};
-
-const BudgetForm = ({ formData, setFormData }) => {
-  const fd = formData.budget;
-  const set = (field, value) => setFormData({ ...formData, budget: { ...fd, [field]: value } });
-  return (<>
-    <div className="form-group">
-      <label>Catégorie *</label>
-      <input type="text" value={fd.category} onChange={e => set('category', e.target.value)} placeholder="ex: salaires, loyer..." required />
-    </div>
-    <div className="form-row">
-      <div className="form-group">
-        <label>Montant budget *</label>
-        <input type="number" value={fd.budget} onChange={e => set('budget', e.target.value)} step="0.01" min="0" required />
-      </div>
-      <div className="form-group">
-        <label>Montant utilisé</label>
-        <input type="number" value={fd.usedAmount} onChange={e => set('usedAmount', e.target.value)} step="0.01" min="0" />
-        <small style={{ color: '#718096' }}>Recalculé automatiquement par Money Flow</small>
-      </div>
-    </div>
-    <div className="form-row">
-      <div className="form-group"><label>Date début *</label><input type="date" value={fd.startDate} onChange={e => set('startDate', e.target.value)} required /></div>
-      <div className="form-group"><label>Date fin *</label><input type="date" value={fd.endDate} onChange={e => set('endDate', e.target.value)} required /></div>
-    </div>
-    <div className="form-group">
-      <label>Statut</label>
-      <select value={fd.status} onChange={e => set('status', e.target.value)}>
-        <option value="respected">Respecté (auto)</option>
-        <option value="desactivated">Désactivé</option>
-      </select>
-      <small style={{ color: '#718096' }}>Seul "Désactivé" peut être défini manuellement — les autres sont calculés automatiquement</small>
-    </div>
-    <div className="form-group"><label>Notes</label><textarea value={fd.notes} onChange={e => set('notes', e.target.value)} rows="3" /></div>
   </>);
 };
 

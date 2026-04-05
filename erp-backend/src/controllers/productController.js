@@ -20,6 +20,7 @@ const {
 const formatProduct = (product) => ({
   id: product._id,
   name: product.name,
+  sku: product.sku || '',
   category: product.category,
   stock: product.stock,
   price: product.price,
@@ -28,6 +29,7 @@ const formatProduct = (product) => ({
   supplier: product.supplierId ? {
     id: product.supplierId._id,
     name: product.supplierId.name,
+    code: product.supplierId.code || '',
     email: product.supplierId.email,
     phone: product.supplierId.phone,
     rating: product.supplierId.rating
@@ -36,6 +38,8 @@ const formatProduct = (product) => ({
   createdAt: product.createdAt,
   updatedAt: product.updatedAt
 });
+
+const escapeRegex = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /**
  * Gérer les erreurs de manière sécurisée
@@ -82,7 +86,7 @@ exports.getAll = async (req, res) => {
     // Exécuter les requêtes en parallèle
     const [products, total] = await Promise.all([
       Product.find(filter)
-        .populate('supplierId', 'name email phone rating')
+        .populate('supplierId', 'name code email phone rating')
         .sort('-createdAt')
         .skip(skip)
         .limit(parseInt(limit))
@@ -155,6 +159,7 @@ exports.getOne = async (req, res) => {
         type: m.type,
         quantity: m.quantity,
         user: m.user,
+        userId: m.createdBy || '',
         note: m.note,
         reason: m.reason
       })),
@@ -169,15 +174,25 @@ exports.getOne = async (req, res) => {
 // ===== POST /api/products =====
 exports.create = async (req, res) => {
   const createProduct = async (session = null) => {
-    const { name, category, stock, price, supplierId, minStock = 5 } = req.body;
+    const { name, category, stock, price, supplierId, minStock = 5, sku } = req.body;
+    const normalizedCategory = typeof category === 'string' ? category.trim() : '';
+    const normalizedSku = typeof sku === 'string' ? sku.trim().toUpperCase() : '';
+
+    if (!normalizedSku) {
+      throw new Error('La clé unique du produit est requise');
+    }
 
     // Validations
-    if (!name || !category || !supplierId) {
+    if (!name || !category || !supplierId || !normalizedSku) {
       throw new Error('Nom, catégorie et fournisseur sont requis');
     }
 
     // Vérifier si le fournisseur existe
     const supplier = await withOptionalSession(Supplier.findById(supplierId), session);
+    const categoryDoc = await withOptionalSession(Category.findOne({ name: normalizedCategory }), session);
+    if (!categoryDoc) {
+      throw new Error('Catégorie non trouvée. Créez-la d\'abord avec sa clé unique');
+    }
     if (!supplier) {
       throw new Error('Fournisseur non trouvé');
     }
@@ -187,15 +202,23 @@ exports.create = async (req, res) => {
       name: { $regex: new RegExp(`^${name}$`, 'i') },
       supplierId 
     }), session);
+    const existingSku = await withOptionalSession(Product.findOne({
+      sku: { $regex: new RegExp(`^${escapeRegex(normalizedSku)}$`, 'i') }
+    }), session);
     
     if (existingProduct) {
       throw new Error('Un produit avec ce nom existe déjà pour ce fournisseur');
     }
 
     // Créer le produit
+    if (existingSku) {
+      throw new Error('Un produit avec cette clé unique existe déjà');
+    }
+
     const product = new Product({
       name: name.trim(),
-      category: category.trim(),
+      sku: normalizedSku,
+      category: normalizedCategory,
       stock: parseInt(stock) || 0,
       price: parseFloat(price) || 0,
       supplierId,
@@ -206,15 +229,7 @@ exports.create = async (req, res) => {
     await product.save(getSessionOptions(session));
 
     // Mettre à jour ou créer la catégorie
-    let categoryDoc = await withOptionalSession(Category.findOne({ name: category }), session);
-    if (!categoryDoc) {
-      categoryDoc = new Category({ 
-        name: category.trim(), 
-        description: '' 
-      });
-    } else {
-      categoryDoc.productCount += 1;
-    }
+    categoryDoc.productCount += 1;
     await categoryDoc.save(getSessionOptions(session));
 
     // Mettre à jour le fournisseur
@@ -238,7 +253,7 @@ exports.create = async (req, res) => {
 
     // Récupérer le produit avec ses relations
     const populatedProduct = await Product.findById(product._id)
-      .populate('supplierId', 'name email phone rating')
+      .populate('supplierId', 'name code email phone rating')
       .lean();
 
     return formatProduct(populatedProduct);
@@ -261,6 +276,14 @@ exports.create = async (req, res) => {
         message: 'Erreur de validation', 
         errors: Object.values(error.errors).map(e => e.message)
       });
+    }
+
+    if (error.code === 11000) {
+      const duplicateField = Object.keys(error.keyPattern || {})[0];
+      const message = duplicateField === 'sku'
+        ? 'Un produit avec cette clé unique existe déjà'
+        : 'Une valeur unique existe déjà pour ce produit';
+      return res.status(400).json({ message });
     }
 
     res.status(400).json({ message: error.message });
@@ -312,6 +335,28 @@ exports.update = async (req, res) => {
       updatedFields.name = true;
     }
 
+    if (updates.sku !== undefined) {
+      const nextSku = typeof updates.sku === 'string' ? updates.sku.trim().toUpperCase() : '';
+      if (!nextSku) {
+        throw new Error('La clé unique du produit est requise');
+      }
+
+      const currentSku = product.sku || '';
+      if (nextSku !== currentSku) {
+        const existingSku = await withOptionalSession(Product.findOne({
+          sku: { $regex: new RegExp(`^${escapeRegex(nextSku)}$`, 'i') },
+          _id: { $ne: id }
+        }), session);
+
+        if (existingSku) {
+          throw new Error('Un produit avec cette clé unique existe déjà');
+        }
+      }
+
+      product.sku = nextSku;
+      updatedFields.sku = true;
+    }
+
     if (updates.price !== undefined) {
       product.price = parseFloat(updates.price) || 0;
       updatedFields.price = true;
@@ -348,7 +393,13 @@ exports.update = async (req, res) => {
 
     // Gestion du changement de catégorie
     if (updates.category && updates.category !== product.category) {
-      product.category = updates.category.trim();
+      const nextCategoryName = updates.category.trim();
+      const newCat = await withOptionalSession(Category.findOne({ name: nextCategoryName }), session);
+      if (!newCat) {
+        throw new Error('Catégorie non trouvée. Créez-la d\'abord avec sa clé unique');
+      }
+
+      product.category = nextCategoryName;
       updatedFields.category = true;
 
       // Mettre à jour l'ancienne catégorie
@@ -359,12 +410,7 @@ exports.update = async (req, res) => {
       }
 
       // Mettre à jour la nouvelle catégorie
-      let newCat = await withOptionalSession(Category.findOne({ name: updates.category }), session);
-      if (!newCat) {
-        newCat = new Category({ name: updates.category.trim(), description: '' });
-      } else {
-        newCat.productCount = (newCat.productCount || 0) + 1;
-      }
+      newCat.productCount = (newCat.productCount || 0) + 1;
       await newCat.save(getSessionOptions(session));
     }
 
@@ -399,7 +445,7 @@ exports.update = async (req, res) => {
 
     // Récupérer le produit mis à jour
     const updatedProduct = await Product.findById(id)
-      .populate('supplierId', 'name email phone rating')
+      .populate('supplierId', 'name code email phone rating')
       .lean();
 
     res.json({
@@ -415,6 +461,14 @@ exports.update = async (req, res) => {
         message: 'Erreur de validation', 
         errors: Object.values(error.errors).map(e => e.message)
       });
+    }
+
+    if (error.code === 11000) {
+      const duplicateField = Object.keys(error.keyPattern || {})[0];
+      const message = duplicateField === 'sku'
+        ? 'Un produit avec cette clé unique existe déjà'
+        : 'Une valeur unique existe déjà pour ce produit';
+      return res.status(400).json({ message });
     }
     
     res.status(400).json({ message: error.message });

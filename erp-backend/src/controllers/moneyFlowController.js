@@ -1,7 +1,6 @@
 // controllers/moneyFlowController.js
 const mongoose = require('mongoose');
 const MoneyFlow = require('../models/MoneyFlow');
-const Budget = require('../models/Budget');
 const Target = require('../models/Target');
 const AuditLog = require('../models/AuditLog');
 
@@ -21,23 +20,15 @@ const handleError = (error, res, msg = 'Erreur serveur') => {
   res.status(500).json({ message: process.env.NODE_ENV === 'production' ? msg : error.message });
 };
 
-// Sync all budgets and targets whose category matches the given string
-async function syncCategoryToBudgetsAndTargets(category) {
+// Sync all targets whose category matches the given string
+async function syncCategoryToTargets(category) {
   const re = new RegExp('^' + category.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i');
-
-  // Sync budgets (expense entries)
-  const budgets = await Budget.find({ category: re });
-  for (const budget of budgets) {
-    const entries = await MoneyFlow.find({ category: re, isExpense: true });
-    budget.usedAmount = entries.reduce((sum, e) => sum + e.amount, 0);
-    await budget.save();
-  }
-
-  // Sync targets (revenue entries)
   const targets = await Target.find({ category: re });
+  const entries = await MoneyFlow.find({ category: re, isExpense: false });
+  const realisedAmount = entries.reduce((sum, entry) => sum + entry.amount, 0);
+
   for (const target of targets) {
-    const entries = await MoneyFlow.find({ category: re, isExpense: false });
-    target.realisedAmount = entries.reduce((sum, e) => sum + e.amount, 0);
+    target.realisedAmount = realisedAmount;
     await target.save();
   }
 }
@@ -97,8 +88,7 @@ exports.create = async (req, res) => {
       details: { category: entry.category, amount: entry.amount, isExpense: entry.isExpense },
       ipAddress: req.ip
     });
-    // Auto-sync budgets and targets
-    await syncCategoryToBudgetsAndTargets(entry.category);
+    await syncCategoryToTargets(entry.category);
     res.status(201).json({ success: true, data: formatEntry(entry), message: 'Entrée créée avec succès' });
   } catch (error) {
     handleError(error, res, 'Erreur lors de la création de l\'entrée');
@@ -127,11 +117,10 @@ exports.update = async (req, res) => {
       details: { category: oldDoc.category }, ipAddress: req.ip
     });
 
-    // Sync old category (may now sum to 0) and new category
     if (oldCategory !== oldDoc.category) {
-      await syncCategoryToBudgetsAndTargets(oldCategory);
+      await syncCategoryToTargets(oldCategory);
     }
-    await syncCategoryToBudgetsAndTargets(oldDoc.category);
+    await syncCategoryToTargets(oldDoc.category);
 
     res.json({ success: true, data: formatEntry(oldDoc), message: 'Entrée modifiée' });
   } catch (error) {
@@ -151,7 +140,7 @@ exports.delete = async (req, res) => {
       user: req.user._id, action: 'DELETE', entity: 'MONEYFLOW', entityId: id,
       details: { category }, ipAddress: req.ip
     });
-    await syncCategoryToBudgetsAndTargets(category);
+    await syncCategoryToTargets(category);
     res.json({ success: true, message: 'Entrée supprimée avec succès' });
   } catch (error) {
     handleError(error, res, 'Erreur lors de la suppression de l\'entrée');

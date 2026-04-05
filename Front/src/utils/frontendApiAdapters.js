@@ -245,6 +245,7 @@ export const mapReportToUi = (report = {}, icon = '📄') => ({
 export const mapCategoryToUi = (category = {}) => ({
   id: category.id || category._id,
   name: category.name || '',
+  code: category.code || '',
   description: category.description || '',
   productCount: Number(category.productCount || 0),
   backend: category,
@@ -253,6 +254,7 @@ export const mapCategoryToUi = (category = {}) => ({
 export const mapProductToUi = (product = {}) => ({
   id: product.id || product._id,
   name: product.name || '',
+  code: product.code || product.sku || '',
   category: product.category || '',
   stock: Number(product.stock || 0),
   price: Number(product.price || 0),
@@ -264,6 +266,7 @@ export const mapProductToUi = (product = {}) => ({
 export const mapSupplierToUi = (supplier = {}) => ({
   id: supplier.id || supplier._id,
   name: supplier.name || '',
+  code: supplier.code || '',
   contact: supplier.contact || '',
   email: supplier.email || '',
   phone: supplier.phone || '',
@@ -280,9 +283,11 @@ export const mapMovementToUi = (movement = {}) => ({
   date: toIsoDate(movement.date || movement.createdAt),
   product: movement.product || movement.productDetails?.name || '',
   productId: movement.productId || movement.product?._id || '',
+  supplierId: movement.supplierId || movement.productDetails?.supplierId || '',
   type: movement.type || 'entrée',
   quantity: Number(movement.quantity || 0),
   user: movement.user || '',
+  userId: movement.userId || movement.createdBy?._id || movement.createdBy || '',
   note: movement.note || '',
   backend: movement,
 });
@@ -380,18 +385,6 @@ export const mapTransactionToUi = (transaction = {}) => {
     backend: transaction,
   };
 };
-
-export const mapBudgetToUi = (budget = {}) => ({
-  id: budget.id || budget._id,
-  category: budget.category || '',
-  budget: Number(budget.budget || 0),
-  usedAmount: Number(budget.usedAmount || 0),
-  startDate: toIsoDate(budget.startDate),
-  endDate: toIsoDate(budget.endDate),
-  status: budget.status || 'respected',
-  notes: budget.notes || '',
-  backend: budget,
-});
 
 export const mapTargetToUi = (target = {}) => ({
   id: target.id || target._id,

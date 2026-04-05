@@ -1,7 +1,20 @@
 {
   "permissions": {
     "allow": [
-      "Bash(find 'C:\\\\Users\\\\mohaa\\\\Desktop\\\\azer code\\\\azer code\\\\Front\\\\src' -name *frontendApiAdapters* -o -name *Adapter*)"
+      "Bash(find 'C:\\\\Users\\\\mohaa\\\\Desktop\\\\azer code\\\\azer code\\\\Front\\\\src' -name *frontendApiAdapters* -o -name *Adapter*)",
+      "Bash(wc -l \"C:\\\\Users\\\\mohaa\\\\Desktop\\\\azer code\\\\azer code\\\\Front/src/pages/facturation/\"* \"C:\\\\Users\\\\mohaa\\\\Desktop\\\\azer code\\\\azer code\\\\Front/src/pages/finance/\"*)",
+      "Bash(npm run:*)",
+      "Bash(__NEW_LINE_b21307838365b64b__ base=\"C:/Users/mohaa/Desktop/azer code/azer code/.worktrees/page-split/Front/src/pages\")",
+      "Bash(for f:*)",
+      "Bash(do)",
+      "Bash(path=\"$base/$f\")",
+      "Bash(if grep:*)",
+      "Bash(__NEW_LINE_c279a6bccadbb60f__ 'base=C:/Users/mohaa/Desktop/azer code/azer code/.worktrees/page-split/Front/src/pages' __NEW_LINE_c279a6bccadbb60f__ echo '=== CategoriesPage ===' grep -n \"navigate\\\\|setTab\" $base/stock/pages/CategoriesPage.jsx)",
+      "Bash(__NEW_LINE_2a24feb6ba43d90e__ base=\"C:/Users/mohaa/Desktop/azer code/azer code/.worktrees/page-split/Front/src/pages\")",
+      "Bash(__NEW_LINE_2a24feb6ba43d90e__ echo:*)",
+      "Read(//c/Users/mohaa/Desktop/azer code/azer code/.worktrees/page-split/$base/stock/pages/**)",
+      "Read(//c/Users/mohaa/Desktop/azer code/azer code/.worktrees/page-split/$base/facturation/pages/**)",
+      "Read(//c/Users/mohaa/Desktop/azer code/azer code/.worktrees/page-split/$base/finance/pages/**)"
     ]
   }
 }

@@ -8,6 +8,14 @@ const categorySchema = new mongoose.Schema({
     trim: true,
     maxlength: 50
   },
+  code: {
+    type: String,
+    unique: true,
+    sparse: true,
+    trim: true,
+    uppercase: true,
+    maxlength: 50
+  },
   description: { 
     type: String, 
     default: '',
@@ -27,6 +35,7 @@ const categorySchema = new mongoose.Schema({
 
 // Index pour la recherche
 categorySchema.index({ name: 1 });
+categorySchema.index({ code: 1 });
 categorySchema.index({ name: 'text', description: 'text' });
 
 // Méthode pour mettre à jour le compteur

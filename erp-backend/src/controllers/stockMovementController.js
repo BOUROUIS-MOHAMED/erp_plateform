@@ -18,9 +18,11 @@ const formatMovement = (movement) => ({
   date: movement.date.toISOString().split('T')[0],
   product: movement.product,
   productId: movement.productId?._id || movement.productId,
+  supplierId: movement.productId?.supplierId?._id || movement.productId?.supplierId || '',
   type: movement.type,
   quantity: movement.quantity,
   user: movement.user,
+  userId: movement.createdBy?._id || movement.createdBy || '',
   note: movement.note || '',
   reason: movement.reason
 });
@@ -71,6 +73,7 @@ exports.getAll = async (req, res) => {
     const [movements, total] = await Promise.all([
       StockMovement.find(filter)
         .populate('productId', 'name category price supplierId')
+        .populate('createdBy', '_id')
         .sort(sort)
         .skip(skip)
         .limit(parseInt(limit))
@@ -90,7 +93,8 @@ exports.getAll = async (req, res) => {
         productDetails: m.productId ? {
           name: m.productId.name,
           category: m.productId.category,
-          price: m.productId.price
+          price: m.productId.price,
+          supplierId: m.productId.supplierId?._id || m.productId.supplierId || ''
         } : null
       })),
       pagination: {

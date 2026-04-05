@@ -37,7 +37,6 @@ const auditLogSchema = new mongoose.Schema({
       'CUSTOMER',
       'FINANCE',
       'ACCOUNT',
-      'BUDGET',
       'TARGET',
       'MONEYFLOW',
       'ORDER',

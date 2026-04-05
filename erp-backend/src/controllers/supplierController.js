@@ -16,6 +16,7 @@ const {
 const formatSupplier = (supplier) => ({
   id: supplier._id,
   name: supplier.name,
+  code: supplier.code || '',
   contact: supplier.contact,
   email: supplier.email,
   phone: supplier.phone,
@@ -25,6 +26,8 @@ const formatSupplier = (supplier) => ({
   products: supplier.products || 0,
   since: supplier.since.toISOString().split('T')[0]
 });
+
+const escapeRegex = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /**
  * Gérer les erreurs de manière sécurisée
@@ -104,6 +107,7 @@ exports.getOne = async (req, res) => {
       products: products.map(p => ({
         id: p._id,
         name: p.name,
+        sku: p.sku || '',
         category: p.category,
         stock: p.stock,
         price: p.price,
@@ -118,9 +122,13 @@ exports.getOne = async (req, res) => {
 // ===== POST /api/suppliers =====
 exports.create = async (req, res) => {
   try {
-    const { name, contact, email, phone, address, status, rating } = req.body;
+    const { name, code, contact, email, phone, address, status, rating } = req.body;
+    const normalizedCode = typeof code === 'string' ? code.trim().toUpperCase() : '';
 
     // Validations
+    if (!normalizedCode) {
+      return res.status(400).json({ message: 'La clé unique du fournisseur est requise' });
+    }
     if (!name) {
       return res.status(400).json({ message: 'Le nom est requis' });
     }
@@ -136,12 +144,20 @@ exports.create = async (req, res) => {
 
     // Vérifier si l'email existe déjà
     const existing = await Supplier.findOne({ email });
+    const existingCode = await Supplier.findOne({
+      code: { $regex: new RegExp(`^${escapeRegex(normalizedCode)}$`, 'i') }
+    });
     if (existing) {
       return res.status(400).json({ message: 'Un fournisseur avec cet email existe déjà' });
     }
 
+    if (existingCode) {
+      return res.status(400).json({ message: 'Un fournisseur avec cette clé unique existe déjà' });
+    }
+
     const supplier = new Supplier({
       name: name.trim(),
+      code: normalizedCode,
       contact: contact.trim(),
       email: email.toLowerCase().trim(),
       phone: phone.trim(),
@@ -183,7 +199,7 @@ exports.update = async (req, res) => {
       return res.status(404).json({ message: 'Fournisseur non trouvé' });
     }
 
-    const { name, contact, email, phone, address, status, rating } = req.body;
+    const { name, code, contact, email, phone, address, status, rating } = req.body;
 
     // Vérifier l'unicité de l'email si changé
     if (email && email !== supplier.email) {
@@ -195,6 +211,25 @@ exports.update = async (req, res) => {
         return res.status(400).json({ message: 'Un fournisseur avec cet email existe déjà' });
       }
       supplier.email = email.toLowerCase().trim();
+    }
+
+    if (code !== undefined) {
+      const normalizedCode = typeof code === 'string' ? code.trim().toUpperCase() : '';
+      if (!normalizedCode) {
+        return res.status(400).json({ message: 'La clé unique du fournisseur est requise' });
+      }
+
+      if (normalizedCode !== (supplier.code || '')) {
+        const existingCode = await Supplier.findOne({
+          code: { $regex: new RegExp(`^${escapeRegex(normalizedCode)}$`, 'i') },
+          _id: { $ne: id }
+        });
+        if (existingCode) {
+          return res.status(400).json({ message: 'Un fournisseur avec cette clé unique existe déjà' });
+        }
+      }
+
+      supplier.code = normalizedCode;
     }
 
     if (name) supplier.name = name.trim();
