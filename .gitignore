@@ -10,6 +10,8 @@ build/
 Front/dist/
 Front/dist-ssr/
 Front/build/
+docs/
+.claude/
 
 # ===== LOGS =====
 logs/
