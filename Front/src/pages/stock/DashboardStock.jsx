@@ -2,8 +2,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getUserRole } from '../../utils/auth';
-import ModuleDisabledView from '../../components/ModuleDisabledView';
-import { useModuleAvailability } from '../../hooks/useModuleAvailability';
 import productService from '../../services/productService';
 import { extractApiErrorMessage, mapProductToUi } from '../../utils/frontendApiAdapters';
 import './DashboardStock.css';
@@ -13,8 +11,6 @@ const DashboardStock = () => {
   const [userRole, setUserRole] = useState('');
   const [produits, setProduits] = useState([]);
   const [errorMessage, setErrorMessage] = useState('');
-  const { blocked, checking } = useModuleAvailability('stock');
-
   useEffect(() => {
     const role = getUserRole();
     setUserRole(role);
@@ -64,18 +60,6 @@ const DashboardStock = () => {
 
     navigate('/');
   };
-
-  if (checking) {
-    return (
-      <div className="dashboard-stock">
-        <p>Chargement...</p>
-      </div>
-    );
-  }
-
-  if (blocked) {
-    return <ModuleDisabledView accentColor="#48bb78" moduleLabel="Stock" />;
-  }
 
   return (
     <div className="dashboard-stock">
