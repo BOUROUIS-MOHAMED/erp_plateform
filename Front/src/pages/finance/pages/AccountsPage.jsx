@@ -107,6 +107,7 @@ const AccountForm = ({ formData, setFormData }) => {
 
 function AccountsPage({ showNotif }) {
   const navigate = useNavigate()
+  const notify = (msg, type) => { if (typeof showNotif === 'function') showNotif(msg, type); else if (type === 'error') window.alert(msg) }
 
   const [accounts, setAccounts] = useState([])
   const [filters, setFilters] = useState({ search: '', type: 'tous', status: 'tous' })
@@ -122,7 +123,7 @@ function AccountsPage({ showNotif }) {
       const res = await accountService.getAll({ limit: 200 })
       setAccounts(pickList(res, ['data']).map(mapAccountToUi))
     } catch (error) {
-      showNotif(extractApiErrorMessage(error, 'Impossible de charger les comptes'), 'error')
+      notify(extractApiErrorMessage(error, 'Impossible de charger les comptes'), 'error')
     } finally {
       setLoading(false)
     }
@@ -171,9 +172,9 @@ function AccountsPage({ showNotif }) {
       await accountService.create({ ...formData, inMoneyFlow: Boolean(formData.inMoneyFlow) })
       await loadData()
       closeModal()
-      showNotif('account ajouté')
+      notify('Compte ajouté')
     } catch (error) {
-      showNotif(extractApiErrorMessage(error, "Impossible d'ajouter account"), 'error')
+      notify(extractApiErrorMessage(error, "Impossible d'ajouter le compte"), 'error')
     }
   }
 
@@ -183,9 +184,9 @@ function AccountsPage({ showNotif }) {
       await accountService.update(targetId, { ...formData, inMoneyFlow: Boolean(formData.inMoneyFlow) })
       await loadData()
       closeModal()
-      showNotif('account modifié')
+      notify('Compte modifié')
     } catch (error) {
-      showNotif(extractApiErrorMessage(error, 'Impossible de modifier account'), 'error')
+      notify(extractApiErrorMessage(error, 'Impossible de modifier le compte'), 'error')
     }
   }
 
@@ -195,9 +196,9 @@ function AccountsPage({ showNotif }) {
       await accountService.delete(targetId)
       await loadData()
       closeModal()
-      showNotif('account supprimé')
+      notify('Compte supprimé')
     } catch (error) {
-      showNotif(extractApiErrorMessage(error, 'Impossible de supprimer account'), 'error')
+      notify(extractApiErrorMessage(error, 'Impossible de supprimer le compte'), 'error')
     }
   }
 
@@ -205,6 +206,9 @@ function AccountsPage({ showNotif }) {
 
   return (
     <div className="accounts-content">
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' }}>
+        <button className="btn-primary" onClick={() => openModal('add')}>+ Nouveau compte</button>
+      </div>
       <div className="filters-container">
         <div className="search-box">
           <span className="search-icon">🔍</span>
@@ -255,7 +259,7 @@ function AccountsPage({ showNotif }) {
         <div className="modal-overlay" onClick={closeModal}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>{modal.mode === 'add' ? '➕ Nouveau' : '✏️ Modifier'} account</h3>
+              <h3>{modal.mode === 'add' ? '➕ Nouveau compte' : '✏️ Modifier le compte'}</h3>
               <button className="modal-close" onClick={closeModal}>×</button>
             </div>
             <div className="modal-body">

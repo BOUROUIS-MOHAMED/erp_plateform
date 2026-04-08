@@ -47,7 +47,7 @@ getProducts: async (params = {}) => {
     try {
       const response = await api.post('/products', {
         name: productData.name,
-        sku: productData.code,
+        sku: productData.sku || productData.code,
         category: productData.category,
         stock: parseInt(productData.stock) || 0,
         price: parseFloat(productData.price) || 0,
@@ -71,7 +71,7 @@ getProducts: async (params = {}) => {
     try {
       const response = await api.put(`/products/${id}`, {
         name: productData.name,
-        sku: productData.code,
+        sku: productData.sku || productData.code,
         category: productData.category,
         stock: parseInt(productData.stock),
         price: parseFloat(productData.price),

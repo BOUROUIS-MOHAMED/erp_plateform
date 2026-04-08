@@ -108,6 +108,7 @@ function TransactionsPage({ showNotif }) {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const initialAccount = searchParams.get('account') || 'tous'
+  const notify = (msg, type) => { if (typeof showNotif === 'function') showNotif(msg, type); else if (type === 'error') window.alert(msg) }
 
   const [transactions, setTransactions] = useState([])
   const [accounts, setAccounts] = useState([])
@@ -134,7 +135,7 @@ function TransactionsPage({ showNotif }) {
       setTransactions(pickList(txRes, ['data']).map(mapTransactionToUi))
       setAccounts(pickList(accRes, ['data']).map(mapAccountToUi))
     } catch (error) {
-      showNotif(extractApiErrorMessage(error, 'Impossible de charger les transactions'), 'error')
+      notify(extractApiErrorMessage(error, 'Impossible de charger les transactions'), 'error')
     } finally {
       setLoading(false)
     }
@@ -218,9 +219,9 @@ function TransactionsPage({ showNotif }) {
       }
       await loadData()
       closeModal()
-      showNotif('transaction ajouté')
+      notify('transaction ajouté')
     } catch (error) {
-      showNotif(extractApiErrorMessage(error, "Impossible d'ajouter transaction"), 'error')
+      notify(extractApiErrorMessage(error, "Impossible d'ajouter transaction"), 'error')
     }
   }
 
@@ -247,9 +248,9 @@ function TransactionsPage({ showNotif }) {
       if (form.status === 'complété') { try { await transactionService.validate(targetId) } catch (e) { console.warn('Validation call failed:', e) } }
       await loadData()
       closeModal()
-      showNotif('transaction modifié')
+      notify('transaction modifié')
     } catch (error) {
-      showNotif(extractApiErrorMessage(error, 'Impossible de modifier transaction'), 'error')
+      notify(extractApiErrorMessage(error, 'Impossible de modifier transaction'), 'error')
     }
   }
 
@@ -259,14 +260,14 @@ function TransactionsPage({ showNotif }) {
       await transactionService.delete(targetId)
       await loadData()
       closeModal()
-      showNotif('transaction supprimé')
+      notify('transaction supprimé')
     } catch (error) {
-      showNotif(extractApiErrorMessage(error, 'Impossible de supprimer transaction'), 'error')
+      notify(extractApiErrorMessage(error, 'Impossible de supprimer transaction'), 'error')
     }
   }
 
   const exportToCSV = () => {
-    if (!filteredData.length) return showNotif('Aucune donnée', 'error')
+    if (!filteredData.length) return notify('Aucune donnée', 'error')
     const csv = [Object.keys(filteredData[0]).join(','), ...filteredData.map(item => Object.values(item).join(','))].join('\n')
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }))
     const a = Object.assign(document.createElement('a'), { href: url, download: `transactions_${today}.csv` })
@@ -278,6 +279,9 @@ function TransactionsPage({ showNotif }) {
 
   return (
     <div className="transactions-content">
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' }}>
+        <button className="btn-primary" onClick={() => openModal('add')}>+ Nouvelle transaction</button>
+      </div>
       <div className="filters-container">
         <div className="search-box">
           <span className="search-icon">🔍</span>
@@ -339,7 +343,7 @@ function TransactionsPage({ showNotif }) {
         <div className="modal-overlay" onClick={closeModal}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>{modal.mode === 'add' ? '➕ Nouveau' : '✏️ Modifier'} transaction</h3>
+              <h3>{modal.mode === 'add' ? '➕ Nouvelle transaction' : '✏️ Modifier la transaction'}</h3>
               <button className="modal-close" onClick={closeModal}>×</button>
             </div>
             <div className="modal-body">

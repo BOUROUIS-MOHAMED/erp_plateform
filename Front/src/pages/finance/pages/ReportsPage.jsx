@@ -101,6 +101,7 @@ const ReportForm = ({ formData, setFormData }) => {
 }
 
 function ReportsPage({ showNotif }) {
+  const notify = (msg, type) => { if (typeof showNotif === 'function') showNotif(msg, type); else if (type === 'error') window.alert(msg) }
   const [reports, setReports] = useState([])
   const [filters, setFilters] = useState({ search: '' })
   const [pagination, setPagination] = useState({ currentPage: 1, itemsPerPage: 10 })
@@ -125,7 +126,7 @@ function ReportsPage({ showNotif }) {
         .map(report => mapReportToUi(report, '📄'))
       setReports(list)
     } catch (error) {
-      showNotif(extractApiErrorMessage(error, 'Impossible de charger les rapports'), 'error')
+      notify(extractApiErrorMessage(error, 'Impossible de charger les rapports'), 'error')
     } finally {
       setLoading(false)
     }
@@ -172,9 +173,9 @@ function ReportsPage({ showNotif }) {
       await reportService.create({ ...formData, tags: ['source:finance'] })
       await loadData()
       closeModal()
-      showNotif('report ajouté')
+      notify('Rapport ajouté')
     } catch (error) {
-      showNotif(extractApiErrorMessage(error, "Impossible d'ajouter report"), 'error')
+      notify(extractApiErrorMessage(error, "Impossible d'ajouter le rapport"), 'error')
     }
   }
 
@@ -184,9 +185,9 @@ function ReportsPage({ showNotif }) {
       await reportService.update(targetId, formData)
       await loadData()
       closeModal()
-      showNotif('report modifié')
+      notify('Rapport modifié')
     } catch (error) {
-      showNotif(extractApiErrorMessage(error, 'Impossible de modifier report'), 'error')
+      notify(extractApiErrorMessage(error, 'Impossible de modifier le rapport'), 'error')
     }
   }
 
@@ -196,9 +197,9 @@ function ReportsPage({ showNotif }) {
       await reportService.delete(targetId)
       await loadData()
       closeModal()
-      showNotif('report supprimé')
+      notify('Rapport supprimé')
     } catch (error) {
-      showNotif(extractApiErrorMessage(error, 'Impossible de supprimer report'), 'error')
+      notify(extractApiErrorMessage(error, 'Impossible de supprimer le rapport'), 'error')
     }
   }
 
@@ -206,7 +207,7 @@ function ReportsPage({ showNotif }) {
     try {
       await reportService.generatePdf(report.id)
     } catch (error) {
-      showNotif(extractApiErrorMessage(error, 'Impossible de télécharger le rapport'), 'error')
+      notify(extractApiErrorMessage(error, 'Impossible de télécharger le rapport'), 'error')
     }
   }
 
@@ -214,6 +215,9 @@ function ReportsPage({ showNotif }) {
 
   return (
     <div className="reports-content">
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' }}>
+        <button className="btn-primary" onClick={() => openModal('add')}>+ Nouveau rapport</button>
+      </div>
       <div className="filters-container">
         <div className="search-box">
           <span className="search-icon">🔍</span>
@@ -257,7 +261,7 @@ function ReportsPage({ showNotif }) {
         <div className="modal-overlay" onClick={closeModal}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>{modal.mode === 'add' ? '➕ Nouveau' : '✏️ Modifier'} report</h3>
+              <h3>{modal.mode === 'add' ? '➕ Nouveau rapport' : '✏️ Modifier le rapport'}</h3>
               <button className="modal-close" onClick={closeModal}>×</button>
             </div>
             <div className="modal-body">

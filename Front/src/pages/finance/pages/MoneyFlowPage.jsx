@@ -87,6 +87,7 @@ const MoneyFlowForm = ({ formData, setFormData }) => {
 }
 
 function MoneyFlowPage({ showNotif }) {
+  const notify = (msg, type) => { if (typeof showNotif === 'function') showNotif(msg, type); else if (type === 'error') window.alert(msg) }
   const [moneyFlows, setMoneyFlows] = useState([])
   const [moneyFlowAccounts, setMoneyFlowAccounts] = useState([])
   const [filters, setFilters] = useState({ search: '', type: 'tous', dateRange: { start: '', end: '' } })
@@ -108,7 +109,7 @@ function MoneyFlowPage({ showNotif }) {
       setMoneyFlows(pickList(mfRes, ['data']).map(mapMoneyFlowToUi))
       setMoneyFlowAccounts(pickList(accRes, ['data']).map(mapAccountToUi))
     } catch (error) {
-      showNotif(extractApiErrorMessage(error, 'Impossible de charger le money flow'), 'error')
+      notify(extractApiErrorMessage(error, 'Impossible de charger le money flow'), 'error')
     } finally {
       setLoading(false)
     }
@@ -170,9 +171,9 @@ function MoneyFlowPage({ showNotif }) {
       await moneyFlowService.create(formData)
       await loadData()
       closeModal()
-      showNotif('moneyFlow ajouté')
+      notify('Flux ajouté')
     } catch (error) {
-      showNotif(extractApiErrorMessage(error, "Impossible d'ajouter moneyFlow"), 'error')
+      notify(extractApiErrorMessage(error, "Impossible d'ajouter le flux"), 'error')
     }
   }
 
@@ -182,9 +183,9 @@ function MoneyFlowPage({ showNotif }) {
       await moneyFlowService.update(targetId, formData)
       await loadData()
       closeModal()
-      showNotif('moneyFlow modifié')
+      notify('Flux modifié')
     } catch (error) {
-      showNotif(extractApiErrorMessage(error, 'Impossible de modifier moneyFlow'), 'error')
+      notify(extractApiErrorMessage(error, 'Impossible de modifier le flux'), 'error')
     }
   }
 
@@ -194,9 +195,9 @@ function MoneyFlowPage({ showNotif }) {
       await moneyFlowService.delete(targetId)
       await loadData()
       closeModal()
-      showNotif('moneyFlow supprimé')
+      notify('Flux supprimé')
     } catch (error) {
-      showNotif(extractApiErrorMessage(error, 'Impossible de supprimer moneyFlow'), 'error')
+      notify(extractApiErrorMessage(error, 'Impossible de supprimer le flux'), 'error')
     }
   }
 
@@ -204,6 +205,9 @@ function MoneyFlowPage({ showNotif }) {
 
   return (
     <div className="budgets-content">
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' }}>
+        <button className="btn-primary" onClick={() => openModal('add')}>+ Nouveau flux</button>
+      </div>
       <div className="filters-container">
         <div className="search-box">
           <span className="search-icon">🔍</span>
@@ -293,7 +297,7 @@ function MoneyFlowPage({ showNotif }) {
         <div className="modal-overlay" onClick={closeModal}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>{modal.mode === 'add' ? '➕ Nouveau' : '✏️ Modifier'} moneyFlow</h3>
+              <h3>{modal.mode === 'add' ? '➕ Nouveau flux' : '✏️ Modifier le flux'}</h3>
               <button className="modal-close" onClick={closeModal}>×</button>
             </div>
             <div className="modal-body">
