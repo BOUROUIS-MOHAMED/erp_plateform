@@ -32,7 +32,7 @@ function CategoriesPage() {
 
   // Form
   const [ec, setEc] = useState(null)
-  const [cf, setCf] = useState({ name: "", description: "" })
+  const [cf, setCf] = useState({ name: "", code: "", description: "" })
   const [fe, setFe] = useState({})
 
   // Load data
@@ -64,13 +64,14 @@ function CategoriesPage() {
   const vCat = useCallback(() => {
     const e = {}
     if (!cf.name.trim()) e.name = "Nom requis"; else if (cf.name.length > 50) e.name = "Max 50"
+    if (!cf.code.trim()) e.code = "Clé unique requise (ex: CA-145)"
     if (cf.description.length > 200) e.description = "Max 200"
     return e
   }, [cf])
 
   // Reset
   const rCat = useCallback(() => {
-    setCf({ name: "", description: "" })
+    setCf({ name: "", code: "", description: "" })
     setEc(null)
     setFe({})
   }, [])
@@ -78,7 +79,7 @@ function CategoriesPage() {
   // Edit
   const hdlEditCat = (c) => {
     setEc(c)
-    setCf({ name: c.name, description: c.description || "" })
+    setCf({ name: c.name, code: c.code, description: c.description || "" })
     setModCategory(true)
   }
 
@@ -86,7 +87,7 @@ function CategoriesPage() {
   const hdlAddCatRemote = async () => {
     const e = vCat(); if (Object.keys(e).length) return setFe(e)
     try {
-      await categoryService.create({ name: cf.name.trim(), description: cf.description.trim() })
+      await categoryService.create({ name: cf.name.trim(), code: cf.code.trim(), description: cf.description.trim() })
       await loadData()
       rCat(); setModCategory(false)
     } catch (error) {
@@ -97,7 +98,7 @@ function CategoriesPage() {
   const hdlUpdCatRemote = async () => {
     const e = vCat(); if (Object.keys(e).length) return setFe(e)
     try {
-      await categoryService.update(ec.id, { name: cf.name.trim(), description: cf.description.trim() })
+      await categoryService.update(ec.id, { name: cf.name.trim(), code: cf.code.trim(), description: cf.description.trim() })
       await loadData()
       rCat(); setModCategory(false)
     } catch (error) {
@@ -145,6 +146,8 @@ function CategoriesPage() {
             <div className="category-icon">📁</div>
             <div className="category-info">
               <h3>{c.name}</h3>
+              {c.code && <p style={{ fontSize: '0.8rem', fontFamily: 'monospace', fontWeight: 600, color: '#4a5568' }}>🔑 {c.code}</p>}
+              <p style={{ fontSize: '0.7rem', color: '#a0aec0', fontFamily: 'monospace' }}>ID: {c.id}</p>
               <p>{c.description}</p>
               <div className="category-stats">
                 {c.productCount
@@ -163,6 +166,7 @@ function CategoriesPage() {
       {/* Category Modal */}
       <Modal isOpen={modCategory} onClose={() => { setModCategory(false); rCat() }} title={ec ? '✏️ Modifier' : '➕ Nouvelle catégorie'} onConfirm={ec ? hdlUpdCatRemote : hdlAddCatRemote} confirmText={ec ? 'Modifier' : 'Créer'}>
         <FormField label="Nom" id="cat-name" error={fe.name}><input type="text" value={cf.name} onChange={e => setCf({ ...cf, name: e.target.value })} autoFocus /></FormField>
+        <FormField label="Code unique (ex: CA-145)" id="cat-code" error={fe.code}><input type="text" value={cf.code} onChange={e => setCf({ ...cf, code: e.target.value })} placeholder="ex: CA-145" /></FormField>
         <FormField label="Description" id="cat-desc" error={fe.description}><textarea value={cf.description} onChange={e => setCf({ ...cf, description: e.target.value })} rows="3" /></FormField>
       </Modal>
 

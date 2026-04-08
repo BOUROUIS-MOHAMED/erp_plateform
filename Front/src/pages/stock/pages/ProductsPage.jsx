@@ -31,7 +31,7 @@ function ProductsPage() {
   // Modal / form
   const [mod, setMod] = useState(false)
   const [ep, setEp] = useState(null)
-  const [pf, setPf] = useState({ name: "", category: "", stock: "", price: "", status: STATUS.IN_STOCK, supplierId: "" })
+  const [pf, setPf] = useState({ name: "", sku: "", category: "", stock: "", price: "", status: STATUS.IN_STOCK, supplierId: "" })
   const [fe, setFe] = useState({})
 
   // Load data
@@ -75,6 +75,7 @@ function ProductsPage() {
   const vProd = useCallback(() => {
     const e = {}
     if (!pf.name.trim()) e.name = "Nom requis"; else if (pf.name.length > 100) e.name = "Max 100"
+    if (!pf.sku.trim()) e.sku = "Clé unique requise (ex: CA-145)"
     if (!pf.category) e.category = "Catégorie requise"
     if (!pf.supplierId) e.supplierId = "Fournisseur requis"
     if (pf.stock && parseInt(pf.stock) < 0) e.stock = "Stock positif"
@@ -84,7 +85,7 @@ function ProductsPage() {
 
   // Reset
   const rProd = useCallback(() => {
-    setPf({ name: "", category: "", stock: "", price: "", status: STATUS.IN_STOCK, supplierId: "" })
+    setPf({ name: "", sku: "", category: "", stock: "", price: "", status: STATUS.IN_STOCK, supplierId: "" })
     setEp(null)
     setFe({})
   }, [])
@@ -92,7 +93,7 @@ function ProductsPage() {
   // Edit handler
   const hdlEditProd = (p) => {
     setEp(p)
-    setPf({ name: p.name, category: p.category, stock: p.stock.toString(), price: p.price.toString(), status: p.status, supplierId: p.supplierId })
+    setPf({ name: p.name, sku: p.code, category: p.category, stock: p.stock.toString(), price: p.price.toString(), status: p.status, supplierId: p.supplierId })
     setMod(true)
   }
 
@@ -100,7 +101,7 @@ function ProductsPage() {
   const hdlAddProdRemote = async () => {
     const e = vProd(); if (Object.keys(e).length) return setFe(e)
     try {
-      await productService.create({ ...pf, supplierId: pf.supplierId })
+      await productService.create({ name: pf.name, sku: pf.sku, category: pf.category, stock: pf.stock, price: pf.price, supplierId: pf.supplierId })
       await loadData()
       rProd(); setMod(false)
     } catch (error) {
@@ -111,7 +112,7 @@ function ProductsPage() {
   const hdlUpdProdRemote = async () => {
     const e = vProd(); if (Object.keys(e).length) return setFe(e)
     try {
-      await productService.update(ep.id, { ...pf, supplierId: pf.supplierId })
+      await productService.update(ep.id, { name: pf.name, sku: pf.sku, category: pf.category, stock: pf.stock, price: pf.price, supplierId: pf.supplierId })
       await loadData()
       rProd(); setMod(false)
     } catch (error) {
@@ -151,8 +152,10 @@ function ProductsPage() {
 
       <div className="products-table-container">
         <table className="products-table">
-          <thead><tr><th>Produit</th><th>Catégorie</th><th>Fournisseur</th><th>Stock</th><th>Prix</th><th>Statut</th><th>Actions</th></tr></thead>
+          <thead><tr><th>ID</th><th>Code</th><th>Produit</th><th>Catégorie</th><th>Fournisseur</th><th>Stock</th><th>Prix</th><th>Statut</th><th>Actions</th></tr></thead>
           <tbody>{fp.length ? fp.map(p => <tr key={p.id}>
+            <td style={{ fontSize: '0.75rem', color: '#718096', fontFamily: 'monospace' }}>{p.id}</td>
+            <td><strong>{p.code || '-'}</strong></td>
             <td className="product-name">{p.name}</td>
             <td>{p.category}</td>
             <td>{supp.find(s => s.id === p.supplierId)?.name || "-"}</td>
@@ -160,7 +163,7 @@ function ProductsPage() {
             <td>{p.price} €</td>
             <td><StatusBadge status={p.status} /></td>
             <td><div className="action-buttons"><button className="btn-icon" onClick={() => hdlEditProd(p)}>✏️</button><button className="btn-icon" onClick={() => hdlDelProdRemote(p.id, p.category, p.supplierId)}>🗑️</button></div></td>
-          </tr>) : <tr><td colSpan="7" className="no-data-row"><div className="no-data-message">Aucun produit</div></td></tr>}</tbody>
+          </tr>) : <tr><td colSpan="9" className="no-data-row"><div className="no-data-message">Aucun produit</div></td></tr>}</tbody>
         </table>
 
         <div className="products-table-mobile">{fp.length ? fp.map(p => <article key={p.id} className="product-card-mobile">
@@ -178,6 +181,7 @@ function ProductsPage() {
       {/* Product Modal */}
       <Modal isOpen={mod} onClose={() => { setMod(false); rProd() }} title={ep ? '✏️ Modifier' : '➕ Nouveau produit'} onConfirm={ep ? hdlUpdProdRemote : hdlAddProdRemote} confirmText={ep ? 'Modifier' : 'Ajouter'}>
         <FormField label="Nom" id="prod-name" error={fe.name}><input type="text" value={pf.name} onChange={e => setPf({ ...pf, name: e.target.value })} autoFocus /></FormField>
+        <FormField label="Code unique (ex: CA-145)" id="prod-sku" error={fe.sku}><input type="text" value={pf.sku} onChange={e => setPf({ ...pf, sku: e.target.value })} placeholder="ex: CA-145" /></FormField>
         <FormField label="Catégorie" id="prod-cat" error={fe.category}><select value={pf.category} onChange={e => setPf({ ...pf, category: e.target.value })}><option value="">Sélectionner</option>{cat.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}</select></FormField>
         <FormField label="Fournisseur" id="prod-supplier" error={fe.supplierId}><select value={pf.supplierId} onChange={e => setPf({ ...pf, supplierId: e.target.value })}><option value="">Sélectionner</option>{supp.filter(s => s.status === 'actif').map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></FormField>
         <div className="form-row"><FormField label="Stock" id="prod-stock" error={fe.stock}><input type="number" min="0" value={pf.stock} onChange={e => setPf({ ...pf, stock: e.target.value })} /></FormField><FormField label="Prix (€)" id="prod-price" error={fe.price}><input type="number" min="0" value={pf.price} onChange={e => setPf({ ...pf, price: e.target.value })} /></FormField></div>

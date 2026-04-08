@@ -327,6 +327,7 @@ function AccountsPage() {
         <table style={styles.modulesTable}>
           <thead>
             <tr>
+              <th style={styles.modulesTableHeader}>ID</th>
               <th style={styles.modulesTableHeader}>{"\u00C9tat"}</th>
               <th style={styles.modulesTableHeader}>Utilisateur</th>
               <th style={styles.modulesTableHeader}>Email</th>
@@ -347,6 +348,9 @@ function AccountsPage() {
                     opacity: account.active ? 1 : 0.65
                   }}
                 >
+                  <td style={{ ...styles.modulesTableCell, fontSize: '0.7rem', color: '#a0aec0', fontFamily: 'monospace' }}>
+                    {account.id}
+                  </td>
                   <td style={styles.modulesTableCell}>
                     <span style={{
                       ...styles.modulesStatusBadge,
@@ -424,7 +428,7 @@ function AccountsPage() {
               ))
             ) : (
               <tr>
-                <td colSpan="8" style={styles.modulesNoResults}>
+                <td colSpan="9" style={styles.modulesNoResults}>
                   {"Aucun compte trouv\u00E9"}
                 </td>
               </tr>

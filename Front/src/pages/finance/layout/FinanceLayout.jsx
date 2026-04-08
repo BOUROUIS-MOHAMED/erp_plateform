@@ -90,12 +90,6 @@ function FinanceLayout() {
             <NavLink to="/finance/accounts"     className={({ isActive }) => `menu-item${isActive ? ' active' : ''}`}>
               <span className="menu-icon">🏦</span>{!sidebarCollapsed && <span>Comptes</span>}
             </NavLink>
-            <NavLink to="/finance/budgets"      className={({ isActive }) => `menu-item${isActive ? ' active' : ''}`}>
-              <span className="menu-icon">📋</span>{!sidebarCollapsed && <span>Budgets</span>}
-            </NavLink>
-            <NavLink to="/finance/targets"      className={({ isActive }) => `menu-item${isActive ? ' active' : ''}`}>
-              <span className="menu-icon">🎯</span>{!sidebarCollapsed && <span>Targets</span>}
-            </NavLink>
             <NavLink to="/finance/moneyflow"    className={({ isActive }) => `menu-item${isActive ? ' active' : ''}`}>
               <span className="menu-icon">💸</span>{!sidebarCollapsed && <span>Money Flow</span>}
             </NavLink>

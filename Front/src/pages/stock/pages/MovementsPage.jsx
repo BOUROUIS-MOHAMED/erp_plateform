@@ -139,11 +139,12 @@ function MovementsPage() {
 
       <div className="movements-table-container">
         <table className="movements-table">
-          <thead><tr><th>Date</th><th>Produit</th><th>Fournisseur</th><th>Type</th><th>Qté</th><th>Note</th><th>Utilisateur</th><th>Actions</th></tr></thead>
+          <thead><tr><th>ID</th><th>Date</th><th>Produit</th><th>Fournisseur</th><th>Type</th><th>Qté</th><th>Note</th><th>Utilisateur</th><th>Actions</th></tr></thead>
           <tbody>{fm.length ? fm.map(m => {
             const product = prod.find(p => p.id === m.productId)
             const supplier = product ? supp.find(s => s.id === product.supplierId) : null
             return <tr key={m.id}>
+              <td style={{ fontSize: '0.75rem', color: '#718096', fontFamily: 'monospace' }}>{m.id}</td>
               <td><time dateTime={m.date}>{new Date(m.date).toLocaleDateString('fr-FR')}</time></td>
               <td className="product-name">{m.product}</td>
               <td>{supplier?.name || '-'}</td>
@@ -153,7 +154,7 @@ function MovementsPage() {
               <td>{m.user}</td>
               <td><button className="btn-icon" onClick={() => hdlDelMvRemote(m.id)}>🗑️</button></td>
             </tr>
-          }) : <tr><td colSpan="8" className="no-data-row"><div className="no-data-message">Aucun mouvement</div></td></tr>}</tbody>
+          }) : <tr><td colSpan="9" className="no-data-row"><div className="no-data-message">Aucun mouvement</div></td></tr>}</tbody>
         </table>
       </div>
 

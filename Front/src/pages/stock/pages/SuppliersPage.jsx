@@ -40,7 +40,7 @@ function SuppliersPage() {
 
   // Form
   const [es, setEs] = useState(null)
-  const [sf, setSf] = useState({ name: "", contact: "", email: "", phone: "", address: "", status: "actif", rating: 4 })
+  const [sf, setSf] = useState({ name: "", code: "", contact: "", email: "", phone: "", address: "", status: "actif", rating: 4 })
   const [fe, setFe] = useState({})
 
   // Load data
@@ -72,6 +72,7 @@ function SuppliersPage() {
   const vSupp = useCallback(() => {
     const e = {}
     if (!sf.name.trim()) e.name = "Nom requis"
+    if (!sf.code.trim()) e.code = "Clé unique requise (ex: CA-145)"
     if (!sf.contact.trim()) e.contact = "Contact requis"
     if (!sf.email.trim()) e.email = "Email requis"
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(sf.email)) e.email = "Email invalide"
@@ -82,7 +83,7 @@ function SuppliersPage() {
 
   // Reset
   const rSupp = useCallback(() => {
-    setSf({ name: "", contact: "", email: "", phone: "", address: "", status: "actif", rating: 4 })
+    setSf({ name: "", code: "", contact: "", email: "", phone: "", address: "", status: "actif", rating: 4 })
     setEs(null)
     setFe({})
   }, [])
@@ -90,7 +91,7 @@ function SuppliersPage() {
   // Edit
   const hdlEditSupp = (s) => {
     setEs(s)
-    setSf({ name: s.name, contact: s.contact, email: s.email, phone: s.phone, address: s.address || "", status: s.status, rating: s.rating })
+    setSf({ name: s.name, code: s.code, contact: s.contact, email: s.email, phone: s.phone, address: s.address || "", status: s.status, rating: s.rating })
     setModSupplier(true)
   }
 
@@ -155,6 +156,8 @@ function SuppliersPage() {
           </div>
           <div className="supplier-info">
             <h3>{s.name}</h3>
+            {s.code && <p style={{ fontSize: '0.8rem', fontFamily: 'monospace', fontWeight: 600, color: '#4a5568', margin: '2px 0' }}>🔑 {s.code}</p>}
+            <p style={{ fontSize: '0.7rem', color: '#a0aec0', fontFamily: 'monospace', margin: '2px 0' }}>ID: {s.id}</p>
             <div className="supplier-rating"><RatingStars rating={s.rating} /> <span>({s.rating})</span></div>
             <p><strong>Contact:</strong> {s.contact}</p>
             <p><strong>Email:</strong> <a href={`mailto:${s.email}`}>{s.email}</a></p>
@@ -175,6 +178,7 @@ function SuppliersPage() {
       {/* Supplier Modal */}
       <Modal isOpen={modSupplier} onClose={() => { setModSupplier(false); rSupp() }} title={es ? '✏️ Modifier fournisseur' : '➕ Nouveau fournisseur'} onConfirm={es ? hdlUpdSuppRemote : hdlAddSuppRemote} confirmText={es ? 'Modifier' : 'Ajouter'}>
         <FormField label="Nom entreprise" id="supp-name" error={fe.name}><input type="text" value={sf.name} onChange={e => setSf({ ...sf, name: e.target.value })} autoFocus /></FormField>
+        <FormField label="Code unique (ex: CA-145)" id="supp-code" error={fe.code}><input type="text" value={sf.code} onChange={e => setSf({ ...sf, code: e.target.value })} placeholder="ex: CA-145" /></FormField>
         <FormField label="Personne de contact" id="supp-contact" error={fe.contact}><input type="text" value={sf.contact} onChange={e => setSf({ ...sf, contact: e.target.value })} /></FormField>
         <div className="form-row">
           <FormField label="Email" id="supp-email" error={fe.email}><input type="email" value={sf.email} onChange={e => setSf({ ...sf, email: e.target.value })} /></FormField>

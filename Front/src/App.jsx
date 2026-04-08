@@ -37,7 +37,6 @@ import StockSettingsPage    from './pages/stock/pages/SettingsPage';
 import FinanceLayout            from './pages/finance/layout/FinanceLayout';
 import FinanceTransactionsPage  from './pages/finance/pages/TransactionsPage';
 import FinanceAccountsPage      from './pages/finance/pages/AccountsPage';
-import FinanceTargetsPage       from './pages/finance/pages/TargetsPage';
 import FinanceMoneyFlowPage     from './pages/finance/pages/MoneyFlowPage';
 import FinanceReportsPage       from './pages/finance/pages/ReportsPage';
 import FinanceSettingsPage      from './pages/finance/pages/SettingsPage';
@@ -94,7 +93,6 @@ function App() {
           <Route index element={<Navigate to="transactions" replace />} />
           <Route path="transactions" element={<FinanceTransactionsPage />} />
           <Route path="accounts"     element={<FinanceAccountsPage />} />
-          <Route path="targets"      element={<FinanceTargetsPage />} />
           <Route path="moneyflow"    element={<FinanceMoneyFlowPage />} />
           <Route path="reports"      element={<FinanceReportsPage />} />
           <Route path="settings"     element={<FinanceSettingsPage />} />
